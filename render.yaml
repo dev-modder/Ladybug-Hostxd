@@ -15,7 +15,7 @@ services:
 
     buildCommand: |
       npm install --omit=dev &&
-      git clone https://github.com/dev-modder/Ladybug-Mini ./Ladybug-Mini &&
+      git clone --depth 1 https://github.com/dev-modder/Ladybug-Mini.git ./Ladybug-Mini &&
       cd ./Ladybug-Mini &&
       PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --omit=dev
 
