@@ -31,13 +31,13 @@ services:
 
       # ── Set these in the Render dashboard (Environment tab) ──────────────
       - key: RENDER_URL
-        sync: false           # Set manually: https://your-service.onrender.com
+        sync: true          # Set manually: https://your-service.onrender.com
 
       - key: SESSION_ID
-        sync: false           # Your KnightBot session string
+        sync: true           # Your KnightBot session string
 
       - key: OWNER_NUMBER
-        sync: false           # e.g. 2637868310191
+        sync: true           # e.g. 2637868310191
 
       - key: BOT_NAME
         value: Ladybug Bot Mini
