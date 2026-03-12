@@ -1,7 +1,7 @@
 {
   "name": "ladybug-mini-host",
-  "version": "1.0.0",
-  "description": "Render.com hosting platform for Ladybug-Mini WhatsApp Bot",
+  "version": "2.0.0",
+  "description": "Multi-host dashboard platform for Ladybug-Mini WhatsApp Bot on Render.com",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -22,5 +22,11 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dev-modder/Ladybug-Mini"
+  },
+  "author": "Dev-Ntando",
+  "license": "MIT"
 }
