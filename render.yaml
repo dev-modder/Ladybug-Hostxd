@@ -1,7 +1,8 @@
-# ─────────────────────────────────────────────────────────────
-#  render.yaml — Ladybug-Mini Hosting Platform
+# ────────────────────────────────────────────────────────────────────────────────
+#  render.yaml — Ladybug-Mini Multi-Host Platform
 #  Deploy this file on Render.com (free tier)
-# ─────────────────────────────────────────────────────────────
+#  Developer: Dev-Ntando
+# ────────────────────────────────────────────────────────────────────────────────
 
 services:
   - type: web
@@ -24,21 +25,25 @@ services:
 
     autoDeploy: true
 
+    # Persistent disk for session data (optional - recommended for production)
+    disk:
+      name: ladybug-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
+
     envVars:
       # Render injects PORT automatically — do not set it here
       - key: NODE_ENV
         value: production
 
-      # ── Set these in the Render dashboard (Environment tab) ──────────────
+      # ─── Set these in the Render dashboard (Environment tab) ───────────────────
       - key: RENDER_URL
-        sync: true          # Set manually: https://your-service.onrender.com
+        sync: false           # Set manually: https://your-service.onrender.com
 
-      - key: SESSION_ID
-        sync: true           # Your KnightBot session string
+      - key: DASHBOARD_PIN
+        sync: false           # Optional: protect dashboard with a PIN
 
-      - key: OWNER_NUMBER
-        sync: true           # e.g. 2637868310191
-
+      # Default bot settings (can be overridden per session)
       - key: BOT_NAME
         value: Ladybug Bot Mini
 
@@ -49,13 +54,10 @@ services:
         value: Asia/Kolkata
 
       - key: PING_INTERVAL
-        value: "14"           # minutes — keeps free tier alive
+        value: "14"           # minutes — keeps free tier awake
 
       - key: CLEANUP_INTERVAL
         value: "30"           # minutes — auto temp-file cleanup
-
-      - key: DASHBOARD_PIN
-        sync: false           # Optional: protect dashboard with a PIN
 
       # Optional API keys
       - key: OPENAI_API_KEY
