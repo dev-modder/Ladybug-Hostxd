@@ -419,6 +419,7 @@
           <div class="ws-dot" id="ws-dot"></div>
           <span id="ws-label">connecting…</span>
         </div>
+        <a href="/panel-bots.html" class="btn btn-add" style="text-decoration:none;">📦 Panel Bots</a>
         <div class="coin-badge" title="Your coin balance">
           <span>🪙</span>
           <span id="coin-count">—</span>
@@ -553,6 +554,13 @@
         <label class="form-label">Timezone</label>
         <input type="text" class="form-input" id="form-timezone" placeholder="e.g. Africa/Harare" />
       </div>
+      <div class="form-group">
+        <label class="form-label">Panel Bot (Optional)</label>
+        <select class="form-input" id="form-bot-id">
+          <option value="">-- Use Default Bot --</option>
+        </select>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Select a custom uploaded bot from Panel Bots</div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-stop" onclick="closeModal()">Cancel</button>
@@ -653,6 +661,7 @@ refreshMe();
 let ws, reconnectTimer;
 let logLines = 0;
 let sessions = [];
+let panelBots = [];
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -669,8 +678,10 @@ function connect() {
       clearLog();
       msg.logs.forEach(appendLog);
       sessions = msg.sessions || [];
+      panelBots = msg.panelBots || [];
       renderSessions();
       updateServerStatus(msg.serverStatus);
+      loadPanelBotOptions();
     } else if (msg.type === 'log') {
       appendLog(msg);
     } else if (msg.type === 'status') {
@@ -821,6 +832,27 @@ async function installBot() {
 }
 
 // ─── Session Modal ────────────────────────────────────────────────────────────
+function loadPanelBotOptions() {
+  const select = document.getElementById('form-bot-id');
+  if (!select) return;
+  select.innerHTML = '<option value="">-- Use Default Bot --</option>';
+  panelBots.forEach(bot => {
+    const opt = document.createElement('option');
+    opt.value = bot.id;
+    opt.textContent = bot.name + ' (Panel Bot)';
+    select.appendChild(opt);
+  });
+}
+
+async function fetchPanelBots() {
+  try {
+    const r = await fetch('/api/panel-bots', { headers: authHeaders() });
+    if (r.status === 401) return;
+    panelBots = await r.json();
+    loadPanelBotOptions();
+  } catch {}
+}
+
 function openAddModal() {
   document.getElementById('modal-title').textContent = 'Add New Session';
   document.getElementById('edit-session-id').value   = '';
@@ -830,6 +862,7 @@ function openAddModal() {
   document.getElementById('form-bot-name').value     = '';
   document.getElementById('form-prefix').value       = '.';
   document.getElementById('form-timezone').value     = 'Africa/Harare';
+  document.getElementById('form-bot-id').value       = '';
   document.getElementById('modal-overlay').classList.add('active');
 }
 
@@ -844,6 +877,7 @@ function editSession(id) {
   document.getElementById('form-bot-name').value     = sess.botName || '';
   document.getElementById('form-prefix').value       = sess.prefix || '.';
   document.getElementById('form-timezone').value     = sess.timezone || 'Africa/Harare';
+  document.getElementById('form-bot-id').value       = sess.botId || '';
   document.getElementById('modal-overlay').classList.add('active');
 }
 
@@ -857,7 +891,8 @@ async function saveSession() {
     sessionIdString: document.getElementById('form-session-id').value.trim(),
     botName:         document.getElementById('form-bot-name').value.trim(),
     prefix:          document.getElementById('form-prefix').value.trim() || '.',
-    timezone:        document.getElementById('form-timezone').value.trim() || 'Africa/Harare'
+    timezone:        document.getElementById('form-timezone').value.trim() || 'Africa/Harare',
+    botId:           document.getElementById('form-bot-id').value || null
   };
   if (!data.ownerName || !data.sessionIdString) { toast('Owner Name and Session ID are required', 'error'); return; }
 
