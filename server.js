@@ -15,8 +15,9 @@ const jwt        = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const fetch      = require('node-fetch');
 const chalk      = require('chalk');
+const multer     = require('multer');
 
-// ─── Config ────────────────────────────────────────────────────────────────────
+// ───────── Config ──────────────────────────────────────────────────────────────────────────────
 const PORT         = process.env.PORT || 3000;
 const RENDER_URL   = process.env.RENDER_URL || '';
 const JWT_SECRET   = process.env.JWT_SECRET || 'ladybugnodes-secret-change-me';
@@ -26,14 +27,55 @@ const PING_INTERVAL_MS = 14 * 60 * 1000;  // 14 minutes
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'devntando';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ntando';
 
-// ─── Data Paths ────────────────────────────────────────────────────────────────
+// ───────── Data Paths ───────────────────────────────────────────────────────────────────────────
 const DATA_DIR      = path.join(__dirname, 'data');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const USERS_FILE    = path.join(DATA_DIR, 'users.json');
+const UPLOADED_BOTS_DIR = path.join(DATA_DIR, 'uploaded-bots');
+const BOT_CONFIGS_FILE = path.join(DATA_DIR, 'bot-configs.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADED_BOTS_DIR)) fs.mkdirSync(UPLOADED_BOTS_DIR, { recursive: true });
 
-// ─── Init User Store ───────────────────────────────────────────────────────────
+// ───────── Multer Config for Bot Uploads ────────────────────────────────────────────────────────
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const botDir = path.join(UPLOADED_BOTS_DIR, req.params.botId || uuidv4());
+    if (!fs.existsSync(botDir)) fs.mkdirSync(botDir, { recursive: true });
+    cb(null, botDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowedExtensions = ['.js', '.json', '.md', '.txt'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExtensions.includes(ext) || file.originalname === 'package.json') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .js, .json, .md, .txt files are allowed'));
+    }
+  },
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
+
+const uploadZip = multer({
+  dest: UPLOADED_BOTS_DIR,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed' || path.extname(file.originalname).toLowerCase() === '.zip') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .zip files are allowed'));
+    }
+  },
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit for zips
+});
+
+// ───────── Init User Store ──────────────────────────────────────────────────────────────────────
 function loadUsers() {
   try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); }
   catch { return []; }
@@ -62,7 +104,17 @@ function ensureAdminExists() {
 
 ensureAdminExists();
 
-// ─── Session Store ─────────────────────────────────────────────────────────────
+// ───────── Bot Configs Store ───────────────────────────────────────────────────────────────────
+function loadBotConfigs() {
+  try { return JSON.parse(fs.readFileSync(BOT_CONFIGS_FILE, 'utf8')); }
+  catch { return []; }
+}
+
+function saveBotConfigs(configs) {
+  fs.writeFileSync(BOT_CONFIGS_FILE, JSON.stringify(configs, null, 2));
+}
+
+// ───────── Session Store ────────────────────────────────────────────────────────────────────────
 function loadSessions() {
   try { return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8')); }
   catch { return []; }
@@ -72,15 +124,16 @@ function saveSessions(sessions) {
   fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
 }
 
-// ─── Server State ──────────────────────────────────────────────────────────────
+// ───────── Server State ─────────────────────────────────────────────────────────────────────────
 const state = {
   pingCount:  0,
   cleanCount: 0,
   startTime:  Date.now(),
-  botProcesses: {}   // sessionId → child_process
+  botProcesses: {},   // sessionId → child_process
+  panelBotProcesses: {} // botId → child_process for panel bots
 };
 
-// ─── Log Buffer ────────────────────────────────────────────────────────────────
+// ───────── Log Buffer ──────────────────────────────────────────────────────────────────────────
 const MAX_LOG = 500;
 const logBuffer = [];
 
@@ -95,14 +148,14 @@ function log(msg, level = 'info', sessionId = null) {
   console.log(fn(`[${level.toUpperCase()}] ${msg}`));
 }
 
-// ─── Express App ───────────────────────────────────────────────────────────────
+// ───────── Express App ──────────────────────────────────────────────────────────────────────────
 const app    = express();
 const server = http.createServer(app);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── Auth Middleware ───────────────────────────────────────────────────────────
+// ───────── Auth Middleware ─────────────────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : req.query.token;
@@ -125,7 +178,7 @@ function requireAdmin(req, res, next) {
 // Cost in coins per bot start
 const COIN_COST_START = 5;
 
-// ─── Auth Routes ───────────────────────────────────────────────────────────────
+// ───────── Auth Routes ──────────────────────────────────────────────────────────────────────────
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
@@ -163,7 +216,7 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ id: user.id, username: user.username, role: user.role, coins: user.coins });
 });
 
-// ─── Coin Routes ───────────────────────────────────────────────────────────────
+// ───────── Coin Routes ──────────────────────────────────────────────────────────────────────────
 app.get('/api/coins', requireAuth, (req, res) => {
   const users = loadUsers();
   const user  = users.find(u => u.id === req.user.id);
@@ -209,7 +262,7 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── Session Routes ────────────────────────────────────────────────────────────
+// ───────── Session Routes ───────────────────────────────────────────────────────────────────────
 app.get('/api/sessions', requireAuth, (req, res) => {
   const sessions = loadSessions();
   // Non-admins only see their own sessions
@@ -218,7 +271,7 @@ app.get('/api/sessions', requireAuth, (req, res) => {
 });
 
 app.post('/api/sessions', requireAuth, (req, res) => {
-  const { ownerName, ownerNumber, sessionIdString, botName, prefix, timezone } = req.body || {};
+  const { ownerName, ownerNumber, sessionIdString, botName, prefix, timezone, botId } = req.body || {};
   if (!ownerName || !sessionIdString) return res.status(400).json({ error: 'ownerName and sessionIdString required' });
 
   const sessions = loadSessions();
@@ -230,6 +283,7 @@ app.post('/api/sessions', requireAuth, (req, res) => {
     botName: botName || 'LadybugBot',
     prefix: prefix || '.',
     timezone: timezone || 'Africa/Harare',
+    botId: botId || null, // Reference to uploaded panel bot
     status: 'stopped',
     createdAt: new Date().toISOString()
   };
@@ -246,7 +300,7 @@ app.put('/api/sessions/:id', requireAuth, (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Session not found' });
   if (req.user.role !== 'admin' && sessions[idx].ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
 
-  const allowed = ['ownerName','ownerNumber','sessionIdString','botName','prefix','timezone'];
+  const allowed = ['ownerName','ownerNumber','sessionIdString','botName','prefix','timezone','botId'];
   allowed.forEach(k => { if (req.body[k] !== undefined) sessions[idx][k] = req.body[k]; });
   saveSessions(sessions);
   broadcast({ type: 'session-updated', session: sessions[idx] });
@@ -267,7 +321,212 @@ app.delete('/api/sessions/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── Bot Control Routes ────────────────────────────────────────────────────────
+// ───────── Panel Bot Management Routes ──────────────────────────────────────────────────────────
+
+// List all panel bots (uploaded bots)
+app.get('/api/panel-bots', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  if (req.user.role === 'admin') return res.json(configs);
+  res.json(configs.filter(c => c.ownerId === req.user.id));
+});
+
+// Get a specific panel bot
+app.get('/api/panel-bots/:botId', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  res.json(config);
+});
+
+// Upload a new panel bot (ZIP file)
+app.post('/api/panel-bots/upload', requireAuth, uploadZip.single('botZip'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+  const botId = uuidv4();
+  const botName = req.body.name || path.parse(req.file.originalname).name;
+  const botDescription = req.body.description || '';
+  const entryPoint = req.body.entryPoint || 'index.js';
+  
+  const extractDir = path.join(UPLOADED_BOTS_DIR, botId);
+  fs.mkdirSync(extractDir, { recursive: true });
+
+  // Extract the ZIP file
+  const AdmZip = require('adm-zip');
+  try {
+    const zip = new AdmZip(req.file.path);
+    zip.extractAllTo(extractDir, true);
+    fs.unlinkSync(req.file.path); // Remove temp zip file
+
+    // Check for package.json and install dependencies
+    const packageJsonPath = path.join(extractDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      log(`Installing dependencies for bot "${botName}"...`, 'info');
+      try {
+        execSync('npm install', { cwd: extractDir, stdio: 'pipe' });
+        log(`Dependencies installed for bot "${botName}"`, 'ok');
+      } catch (err) {
+        log(`Warning: Could not install dependencies for "${botName}": ${err.message}`, 'warn');
+      }
+    }
+
+    // Verify entry point exists
+    const entryPath = path.join(extractDir, entryPoint);
+    if (!fs.existsSync(entryPath)) {
+      // Try to find any .js file
+      const files = fs.readdirSync(extractDir);
+      const jsFile = files.find(f => f.endsWith('.js'));
+      if (jsFile) {
+        log(`Entry point "${entryPoint}" not found, using "${jsFile}" instead`, 'warn');
+        req.body.entryPoint = jsFile;
+      }
+    }
+
+    const config = {
+      id: botId,
+      name: botName,
+      description: botDescription,
+      entryPoint: req.body.entryPoint || entryPoint,
+      ownerId: req.user.id,
+      ownerUsername: req.user.username,
+      status: 'stopped',
+      createdAt: new Date().toISOString(),
+      path: extractDir
+    };
+
+    const configs = loadBotConfigs();
+    configs.push(config);
+    saveBotConfigs(configs);
+
+    log(`Panel bot "${botName}" uploaded by "${req.user.username}"`, 'ok');
+    broadcast({ type: 'panel-bot-created', bot: config });
+    res.json({ ok: true, bot: config });
+  } catch (err) {
+    fs.rmSync(extractDir, { recursive: true, force: true });
+    log(`Failed to extract bot: ${err.message}`, 'error');
+    res.status(500).json({ error: 'Failed to extract bot: ' + err.message });
+  }
+});
+
+// Upload individual files to a bot
+app.post('/api/panel-bots/:botId/files', requireAuth, upload.array('files', 20), (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded' });
+  }
+
+  log(`Uploaded ${req.files.length} files to bot "${config.name}"`, 'ok');
+  res.json({ ok: true, filesUploaded: req.files.length });
+});
+
+// Update panel bot config
+app.put('/api/panel-bots/:botId', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const idx = configs.findIndex(c => c.id === req.params.botId);
+  
+  if (idx === -1) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && configs[idx].ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const allowed = ['name', 'description', 'entryPoint'];
+  allowed.forEach(k => { if (req.body[k] !== undefined) configs[idx][k] = req.body[k]; });
+  saveBotConfigs(configs);
+  
+  broadcast({ type: 'panel-bot-updated', bot: configs[idx] });
+  res.json({ ok: true, bot: configs[idx] });
+});
+
+// Delete a panel bot
+app.delete('/api/panel-bots/:botId', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  // Stop the bot if running
+  stopPanelBotProcess(config.id);
+
+  // Remove bot directory
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  if (fs.existsSync(botDir)) {
+    fs.rmSync(botDir, { recursive: true, force: true });
+  }
+
+  const newConfigs = configs.filter(c => c.id !== req.params.botId);
+  saveBotConfigs(newConfigs);
+  
+  log(`Panel bot "${config.name}" deleted`, 'warn');
+  broadcast({ type: 'panel-bot-deleted', botId: config.id });
+  res.json({ ok: true });
+});
+
+// Start a panel bot
+app.post('/api/panel-bots/:botId/start', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  // Coin check (skip for admin)
+  if (req.user.role !== 'admin') {
+    const users = loadUsers();
+    const user  = users.find(u => u.id === req.user.id);
+    if (!user || user.coins < COIN_COST_START) {
+      return res.status(402).json({ error: `Not enough coins. Starting a bot costs ${COIN_COST_START} coins.` });
+    }
+    user.coins -= COIN_COST_START;
+    saveUsers(users);
+    broadcast({ type: 'coins-updated', userId: user.id, coins: user.coins });
+  }
+
+  startPanelBotProcess(config);
+  res.json({ ok: true });
+});
+
+// Stop a panel bot
+app.post('/api/panel-bots/:botId/stop', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  stopPanelBotProcess(config.id);
+  res.json({ ok: true });
+});
+
+// Restart a panel bot
+app.post('/api/panel-bots/:botId/restart', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  stopPanelBotProcess(config.id);
+  setTimeout(() => startPanelBotProcess(config), 1500);
+  res.json({ ok: true });
+});
+
+// Get bot logs
+app.get('/api/panel-bots/:botId/logs', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const botLogs = logBuffer.filter(l => l.sessionId === req.params.botId);
+  res.json({ logs: botLogs });
+});
+
+// ───────── Bot Control Routes ──────────────────────────────────────────────────────────────────
 app.post('/api/bot/start', requireAuth, (req, res) => {
   const { sessionId } = req.body || {};
   const sessions = loadSessions();
@@ -320,7 +579,7 @@ app.post('/api/bot/cleanup', requireAdmin, (req, res) => {
   res.json({ ok: true, ...result });
 });
 
-// ─── Install Bot Route ─────────────────────────────────────────────────────────
+// ───────── Install Bot Route ────────────────────────────────────────────────────────────────────
 app.post('/api/install-bot', requireAdmin, (req, res) => {
   try {
     log('Installing bot from GitHub...', 'info');
@@ -336,7 +595,7 @@ app.post('/api/install-bot', requireAdmin, (req, res) => {
   }
 });
 
-// ─── Status & Health ───────────────────────────────────────────────────────────
+// ───────── Status & Health ─────────────────────────────────────────────────────────────────────
 app.get('/api/status', (req, res) => {
   const mem = process.memoryUsage();
   res.json({
@@ -349,13 +608,13 @@ app.get('/api/status', (req, res) => {
 
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
-// ─── Serve HTML pages ──────────────────────────────────────────────────────────
+// ───────── Serve HTML pages ────────────────────────────────────────────────────────────────────
 // Login page
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 // Dashboard (protected by client-side redirect)
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ─── Bot Process Manager ───────────────────────────────────────────────────────
+// ───────── Bot Process Manager ────────────────────────────────────────────────────────────────
 function setSessionStatus(sessionId, status) {
   const sessions = loadSessions();
   const sess = sessions.find(s => s.id === sessionId);
@@ -372,6 +631,17 @@ function startBotProcess(sess) {
     return;
   }
 
+  // Check if this session uses a panel bot
+  if (sess.botId) {
+    const configs = loadBotConfigs();
+    const botConfig = configs.find(c => c.id === sess.botId);
+    if (botConfig) {
+      startPanelBotForSession(sess, botConfig);
+      return;
+    }
+  }
+
+  // Default bot source
   const botDir = path.join(__dirname, 'bot-src');
   if (!fs.existsSync(botDir)) {
     log(`Bot source not found. Click "Install Bot" first.`, 'error');
@@ -407,6 +677,47 @@ function startBotProcess(sess) {
   });
 }
 
+function startPanelBotForSession(sess, botConfig) {
+  if (state.botProcesses[sess.id]) {
+    log(`Bot "${sess.id}" is already running`, 'warn');
+    return;
+  }
+
+  const botDir = path.join(UPLOADED_BOTS_DIR, botConfig.id);
+  if (!fs.existsSync(botDir)) {
+    log(`Panel bot directory not found for "${botConfig.name}"`, 'error');
+    setSessionStatus(sess.id, 'crashed');
+    return;
+  }
+
+  log(`Starting panel bot "${botConfig.name}" for session "${sess.id}"...`, 'info', sess.id);
+  setSessionStatus(sess.id, 'starting');
+
+  const env = {
+    ...process.env,
+    SESSION_ID: sess.sessionIdString,
+    BOT_NAME:   sess.botName || botConfig.name,
+    PREFIX:     sess.prefix  || '.',
+    OWNER_NUMBER: sess.ownerNumber || '',
+    TZ:         sess.timezone || 'Africa/Harare'
+  };
+
+  const proc = spawn('node', [botConfig.entryPoint || 'index.js'], { cwd: botDir, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  state.botProcesses[sess.id] = proc;
+
+  proc.stdout.on('data', d => log(d.toString().trim(), 'bot', sess.id));
+  proc.stderr.on('data', d => log(d.toString().trim(), 'warn', sess.id));
+
+  proc.on('spawn', () => setSessionStatus(sess.id, 'running'));
+
+  proc.on('exit', (code) => {
+    delete state.botProcesses[sess.id];
+    const status = code === 0 ? 'stopped' : 'crashed';
+    setSessionStatus(sess.id, status);
+    log(`Panel bot "${botConfig.name}" exited with code ${code} → ${status}`, code === 0 ? 'warn' : 'error', sess.id);
+  });
+}
+
 function stopBotProcess(sessionId) {
   const proc = state.botProcesses[sessionId];
   if (proc) {
@@ -417,7 +728,66 @@ function stopBotProcess(sessionId) {
   }
 }
 
-// ─── Cleanup ───────────────────────────────────────────────────────────────────
+// ───────── Panel Bot Process Manager ──────────────────────────────────────────────────────────
+function setPanelBotStatus(botId, status) {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === botId);
+  if (config) {
+    config.status = status;
+    saveBotConfigs(configs);
+    broadcast({ type: 'panel-bot-status', botId, status });
+  }
+}
+
+function startPanelBotProcess(config) {
+  if (state.panelBotProcesses[config.id]) {
+    log(`Panel bot "${config.name}" is already running`, 'warn');
+    return;
+  }
+
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  if (!fs.existsSync(botDir)) {
+    log(`Panel bot directory not found for "${config.name}"`, 'error');
+    setPanelBotStatus(config.id, 'crashed');
+    return;
+  }
+
+  log(`Starting panel bot "${config.name}"...`, 'info', config.id);
+  setPanelBotStatus(config.id, 'starting');
+
+  const env = {
+    ...process.env,
+    BOT_ID: config.id,
+    BOT_NAME: config.name
+  };
+
+  const proc = spawn('node', [config.entryPoint || 'index.js'], { cwd: botDir, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  state.panelBotProcesses[config.id] = proc;
+
+  proc.stdout.on('data', d => log(d.toString().trim(), 'bot', config.id));
+  proc.stderr.on('data', d => log(d.toString().trim(), 'warn', config.id));
+
+  proc.on('spawn', () => setPanelBotStatus(config.id, 'running'));
+
+  proc.on('exit', (code) => {
+    delete state.panelBotProcesses[config.id];
+    const status = code === 0 ? 'stopped' : 'crashed';
+    setPanelBotStatus(config.id, status);
+    log(`Panel bot "${config.name}" exited with code ${code} → ${status}`, code === 0 ? 'warn' : 'error', config.id);
+  });
+}
+
+function stopPanelBotProcess(botId) {
+  const proc = state.panelBotProcesses[botId];
+  if (proc) {
+    proc.kill('SIGTERM');
+    delete state.panelBotProcesses[botId];
+    setPanelBotStatus(botId, 'stopped');
+    log(`Panel bot "${botId}" stopped`, 'warn', botId);
+  }
+}
+
+// ───────── Cleanup ─────────────────────────────────────────────────────────────────────────────
 function runCleanup() {
   const tmpDir = '/tmp';
   let removed = 0, freedBytes = 0;
@@ -443,7 +813,7 @@ function runCleanup() {
   return { removed, freedMB };
 }
 
-// ─── Keep-Alive Ping ───────────────────────────────────────────────────────────
+// ───────── Keep-Alive Ping ─────────────────────────────────────────────────────────────────────
 async function keepAlivePing() {
   if (!RENDER_URL) return;
   try {
@@ -458,7 +828,7 @@ async function keepAlivePing() {
 
 setInterval(keepAlivePing, PING_INTERVAL_MS);
 
-// ─── WebSocket Server ──────────────────────────────────────────────────────────
+// ───────── WebSocket Server ───────────────────────────────────────────────────────────────────
 const wss = new WebSocket.Server({ server });
 
 const clients = new Set();
@@ -475,10 +845,12 @@ wss.on('connection', (ws) => {
 
   // Send initial state
   const sessions = loadSessions();
+  const botConfigs = loadBotConfigs();
   ws.send(JSON.stringify({
     type: 'init',
     logs: logBuffer.slice(-150),
     sessions,
+    panelBots: botConfigs,
     serverStatus: {
       uptime:    Math.floor((Date.now() - state.startTime) / 1000),
       pingCount: state.pingCount,
@@ -491,11 +863,11 @@ wss.on('connection', (ws) => {
   ws.on('error', () => clients.delete(ws));
 });
 
-// ─── Cron Jobs ─────────────────────────────────────────────────────────────────
+// ───────── Cron Jobs ──────────────────────────────────────────────────────────────────────────
 // Cleanup every 6 hours
 cron.schedule('0 */6 * * *', runCleanup);
 
-// ─── Start ─────────────────────────────────────────────────────────────────────
+// ───────── Start ───────────────────────────────────────────────────────────────────────────────
 server.listen(PORT, () => {
   log(`LADYBUGNODES running on port ${PORT}`, 'ok');
   if (RENDER_URL) log(`Keep-alive targeting: ${RENDER_URL}`, 'info');
@@ -505,5 +877,6 @@ server.listen(PORT, () => {
 process.on('SIGTERM', () => {
   log('SIGTERM received — shutting down bots...', 'warn');
   Object.keys(state.botProcesses).forEach(stopBotProcess);
+  Object.keys(state.panelBotProcesses).forEach(stopPanelBotProcess);
   process.exit(0);
 });
