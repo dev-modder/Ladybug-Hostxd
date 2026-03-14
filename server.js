@@ -1,971 +1,509 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════════════════╗
- * ║        LADYBUGNODES HOSTING PLATFORM v4.0.0 - WITH MONGODB                  ║
- * ║   Advanced Bot Hosting with Multi-Server, Bot Upload &amp; Approval System     ║
- * ║   Features: MongoDB, Bot Uploads, URL Import, Admin Approval, Multi-Server ║
- * ╚══════════════════════════════════════════════════════════════════════════════╝
- *
- * Features:
- *  • MongoDB database for scalable storage
- *  • User registration and authentication with JWT
- *  • Coin-based service system
- *  • Bot upload via file or URL
- *  • Admin approval workflow for bots
- *  • Multi-server support
- *  • Bot name display when hosted
- *  • Real-time WebSocket log streaming
- *
- * Developer: Dev-Ntando
- */
+'use strict';
 
 require('dotenv').config();
 
-const express     = require('express');
-const http        = require('http');
-const { WebSocketServer } = require('ws');
-const cron        = require('node-cron');
-const fetch       = require('node-fetch');
-const fs          = require('fs');
-const path        = require('path');
-const { spawn, execSync } = require('child_process');
-const os          = require('os');
-const crypto      = require('crypto');
-const bcrypt      = require('bcryptjs');
-const jwt         = require('jsonwebtoken');
+const express    = require('express');
+const http       = require('http');
+const path       = require('path');
+const fs         = require('fs');
+const { execSync, spawn } = require('child_process');
+const cron       = require('node-cron');
+const WebSocket  = require('ws');
+const si         = require('systeminformation');
+const bcrypt     = require('bcryptjs');
+const jwt        = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const mongoose    = require('mongoose');
-const multer      = require('multer');
+const fetch      = require('node-fetch');
+const chalk      = require('chalk');
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Configuration
-// ═══════════════════════════════════════════════════════════════════════════════
-const BOT_REPO_URL = process.env.BOT_REPO_URL || 'https://github.com/dev-modder/Ladybug-Mini.git';
-const BOT_DIR_NAME = 'Ladybug-Mini';
+// ─── Config ────────────────────────────────────────────────────────────────────
+const PORT         = process.env.PORT || 3000;
+const RENDER_URL   = process.env.RENDER_URL || '';
+const JWT_SECRET   = process.env.JWT_SECRET || 'ladybugnodes-secret-change-me';
+const PING_INTERVAL_MS = 14 * 60 * 1000;  // 14 minutes
 
-const PORT            = process.env.PORT || 3000;
-const RENDER_URL      = (process.env.RENDER_URL || '').trim();
-const PING_INTERVAL   = parseInt(process.env.PING_INTERVAL   || '14');
-const CLEANUP_INTERVAL= parseInt(process.env.CLEANUP_INTERVAL|| '30');
-const BOT_NAME        = process.env.BOT_NAME   || 'LadybugNodes Bot';
-const DASHBOARD_PIN   = process.env.DASHBOARD_PIN || '';
-const JWT_SECRET      = process.env.JWT_SECRET || 'ladybugnodes-secret-key-2024';
-const MONGODB_URI     = process.env.MONGODB_URI || 'mongodb://localhost:27017/ladybugnodes';
-const UPLOAD_DIR      = path.join(__dirname, 'uploads');
-const BOTS_DIR        = path.join(__dirname, 'hosted-bots');
+// Default admin credentials (override with env vars)
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'devntando';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ntando';
 
-// Create necessary directories
-[UPLOAD_DIR, BOTS_DIR, path.join(__dirname, 'data')].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
+// ─── Data Paths ────────────────────────────────────────────────────────────────
+const DATA_DIR      = path.join(__dirname, 'data');
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+const USERS_FILE    = path.join(DATA_DIR, 'users.json');
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MongoDB Connection &amp; Models
-// ═══════════════════════════════════════════════════════════════════════════════
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// Connect to MongoDB
-mongoose.connect(MONGODB_URI)
-  .then(() => log('OK', 'Connected to MongoDB successfully'))
-  .catch(err => log('ERR', 'MongoDB connection error: ' + err.message));
+// ─── Init User Store ───────────────────────────────────────────────────────────
+function loadUsers() {
+  try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); }
+  catch { return []; }
+}
 
-// User Schema
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  coins: { type: Number, default: 100 },
-  isAdmin: { type: Boolean, default: false },
-  isPremium: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-  lastLogin: { type: Date }
-});
-const User = mongoose.model('User', userSchema);
+function saveUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
 
-// Bot Schema
-const botSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String },
-  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  ownerName: { type: String, required: true },
-  status: { type: String, enum: ['pending', 'approved', 'rejected', 'running', 'stopped'], default: 'pending' },
-  sourceType: { type: String, enum: ['upload', 'url', 'github'], required: true },
-  sourceUrl: { type: String },
-  filePath: { type: String },
-  serverId: { type: String },
-  sessionName: { type: String },
-  port: { type: Number },
-  pid: { type: Number },
-  coinsSpent: { type: Number, default: 0 },
-  hostingDays: { type: Number, default: 7 },
-  expiresAt: { type: Date },
-  createdAt: { type: Date, default: Date.now },
-  approvedAt: { type: Date },
-  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  rejectionReason: { type: String }
-});
-const Bot = mongoose.model('Bot', botSchema);
+function ensureAdminExists() {
+  let users = loadUsers();
+  if (!users.find(u => u.username === ADMIN_USERNAME)) {
+    const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+    users.push({
+      id: uuidv4(),
+      username: ADMIN_USERNAME,
+      password: hash,
+      role: 'admin',
+      coins: 999,
+      createdAt: new Date().toISOString()
+    });
+    saveUsers(users);
+    console.log(chalk.green(`[AUTH] Admin user "${ADMIN_USERNAME}" created.`));
+  }
+}
 
-// Server Schema
-const serverSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  region: { type: String, default: 'US-East' },
-  host: { type: String, default: 'localhost' },
-  port: { type: Number },
-  maxBots: { type: Number, default: 10 },
-  activeBots: { type: Number, default: 0 },
-  status: { type: String, enum: ['online', 'offline', 'maintenance'], default: 'online' },
-  specs: {
-    cpu: { type: String, default: '2 vCPU' },
-    ram: { type: String, default: '4GB' },
-    storage: { type: String, default: '50GB SSD' }
-  },
-  createdAt: { type: Date, default: Date.now }
-});
-const Server = mongoose.model('Server', serverSchema);
+ensureAdminExists();
 
-// Service Schema
-const serviceSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String },
-  cost: { type: Number, required: true },
-  duration: { type: Number, default: 0 },
-  features: [String],
-  active: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
-});
-const Service = mongoose.model('Service', serviceSchema);
+// ─── Session Store ─────────────────────────────────────────────────────────────
+function loadSessions() {
+  try { return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8')); }
+  catch { return []; }
+}
 
-// Transaction Schema
-const transactionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['purchase', 'bonus', 'admin_add', 'admin_deduct', 'refund'], required: true },
-  amount: { type: Number, required: true },
-  description: { type: String },
-  botId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bot' },
-  createdAt: { type: Date, default: Date.now }
-});
-const Transaction = mongoose.model('Transaction', transactionSchema);
+function saveSessions(sessions) {
+  fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
+}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Express Setup
-// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Server State ──────────────────────────────────────────────────────────────
+const state = {
+  pingCount:  0,
+  cleanCount: 0,
+  startTime:  Date.now(),
+  botProcesses: {}   // sessionId → child_process
+};
+
+// ─── Log Buffer ────────────────────────────────────────────────────────────────
+const MAX_LOG = 500;
+const logBuffer = [];
+
+function log(msg, level = 'info', sessionId = null) {
+  const entry = { ts: Date.now(), level, msg, sessionId };
+  logBuffer.push(entry);
+  if (logBuffer.length > MAX_LOG) logBuffer.shift();
+  broadcast({ type: 'log', ...entry });
+
+  const colors = { info: chalk.cyan, ok: chalk.green, warn: chalk.yellow, error: chalk.red, bot: chalk.magenta };
+  const fn = colors[level] || chalk.white;
+  console.log(fn(`[${level.toUpperCase()}] ${msg}`));
+}
+
+// ─── Express App ───────────────────────────────────────────────────────────────
 const app    = express();
 const server = http.createServer(app);
-const wss    = new WebSocketServer({ server });
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Multer configuration for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.zip', '.js', '.json', '.ts'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext) || file.mimetype === 'application/zip') {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only .zip, .js, .json, .ts allowed'));
-    }
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Logging Utility
-// ═══════════════════════════════════════════════════════════════════════════════
-const LOG_LEVELS = { INFO: '\x1b[36m', OK: '\x1b[32m', WARN: '\x1b[33m', ERR: '\x1b[31m' };
-function log(level, message) {
-  const timestamp = new Date().toISOString();
-  const color = LOG_LEVELS[level] || '\x1b[0m';
-  console.log(`${color}[${level.padEnd(4)}]\x1b[0m ${timestamp} ${message}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Authentication Middleware
-// ═══════════════════════════════════════════════════════════════════════════════
-const authMiddleware = async (req, res, next) => {
+// ─── Auth Middleware ───────────────────────────────────────────────────────────
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : req.query.token;
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.id);
-    if (!user) return res.status(401).json({ error: 'User not found' });
-    
-    req.user = user;
-    req.token = decoded;
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-};
-
-const adminMiddleware = async (req, res, next) => {
-  if (!req.user.isAdmin) {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Initialize Default Data
-// ═══════════════════════════════════════════════════════════════════════════════
-async function initializeData() {
-  try {
-    // Create admin user if not exists
-    let admin = await User.findOne({ username: 'devntando' });
-    if (!admin) {
-      const hashedPassword = await bcrypt.hash('ntando', 10);
-      admin = await User.create({
-        username: 'devntando',
-        email: 'admin@ladybugnodes.com',
-        password: hashedPassword,
-        coins: 999999999,
-        isAdmin: true,
-        isPremium: true
-      });
-      log('OK', 'Admin user created: devntando');
-    }
-
-    // Create default servers
-    const serverCount = await Server.countDocuments();
-    if (serverCount === 0) {
-      await Server.insertMany([
-        { name: 'US-East-1', region: 'US-East', host: 'localhost', maxBots: 20, specs: { cpu: '4 vCPU', ram: '8GB', storage: '100GB SSD' } },
-        { name: 'US-West-1', region: 'US-West', host: 'localhost', maxBots: 15, specs: { cpu: '2 vCPU', ram: '4GB', storage: '50GB SSD' } },
-        { name: 'EU-London-1', region: 'Europe', host: 'localhost', maxBots: 15, specs: { cpu: '2 vCPU', ram: '4GB', storage: '50GB SSD' } },
-        { name: 'Asia-Singapore-1', region: 'Asia-Pacific', host: 'localhost', maxBots: 10, specs: { cpu: '2 vCPU', ram: '4GB', storage: '50GB SSD' } }
-      ]);
-      log('OK', 'Default servers created');
-    }
-
-    // Create default services
-    const serviceCount = await Service.countDocuments();
-    if (serviceCount === 0) {
-      await Service.insertMany([
-        { name: 'Basic Bot Hosting', description: 'Host your bot for 7 days', cost: 50, duration: 7, features: ['7 Days Hosting', 'Basic Support', '1 Bot Instance'] },
-        { name: 'Premium Bot Hosting', description: 'Host your bot for 30 days', cost: 150, duration: 30, features: ['30 Days Hosting', 'Priority Support', '2 Bot Instances', 'Custom Bot Name'] },
-        { name: 'VIP Bot Hosting', description: 'Host your bot for 90 days with premium features', cost: 400, duration: 90, features: ['90 Days Hosting', '24/7 Support', '5 Bot Instances', 'Custom Bot Name', 'Priority Server'] },
-        { name: 'Custom Bot Name', description: 'Set a custom name for your bot', cost: 20, duration: 0, features: ['Permanent Custom Name'] },
-        { name: 'Extra Session Slot', description: 'Add an additional bot session slot', cost: 100, duration: 30, features: ['30 Days', 'Extra Bot Instance'] }
-      ]);
-      log('OK', 'Default services created');
-    }
-
-    log('OK', 'Initialization complete');
-  } catch (error) {
-    log('ERR', 'Initialization error: ' + error.message);
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Authentication
-// ═══════════════════════════════════════════════════════════════════════════════
+function requireAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    next();
+  });
+}
 
-// Register
-app.post('/api/auth/register', async (req, res) => {
+// Cost in coins per bot start
+const COIN_COST_START = 5;
+
+// ─── Auth Routes ───────────────────────────────────────────────────────────────
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+  const users = loadUsers();
+  const user  = users.find(u => u.username === username);
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+  log(`User "${username}" logged in`, 'ok');
+  res.json({ ok: true, token, user: { id: user.id, username: user.username, role: user.role, coins: user.coins } });
+});
+
+app.post('/api/auth/register', requireAdmin, (req, res) => {
+  const { username, password, coins = 50 } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+  const users = loadUsers();
+  if (users.find(u => u.username === username)) return res.status(409).json({ error: 'Username already exists' });
+
+  const hash = bcrypt.hashSync(password, 10);
+  const newUser = { id: uuidv4(), username, password: hash, role: 'user', coins: Number(coins), createdAt: new Date().toISOString() };
+  users.push(newUser);
+  saveUsers(users);
+  log(`Admin created user "${username}" with ${coins} coins`, 'ok');
+  res.json({ ok: true, user: { id: newUser.id, username, role: newUser.role, coins: newUser.coins } });
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user  = users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ id: user.id, username: user.username, role: user.role, coins: user.coins });
+});
+
+// ─── Coin Routes ───────────────────────────────────────────────────────────────
+app.get('/api/coins', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user  = users.find(u => u.id === req.user.id);
+  res.json({ coins: user ? user.coins : 0 });
+});
+
+// Admin: add/set coins for a user
+app.post('/api/coins/add', requireAdmin, (req, res) => {
+  const { userId, username, amount } = req.body || {};
+  if (isNaN(amount) || Number(amount) === 0) return res.status(400).json({ error: 'Valid amount required' });
+
+  const users = loadUsers();
+  const user  = userId
+    ? users.find(u => u.id === userId)
+    : users.find(u => u.username === username);
+
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  user.coins = Math.max(0, (user.coins || 0) + Number(amount));
+  saveUsers(users);
+  log(`Admin added ${amount} coins to "${user.username}" (total: ${user.coins})`, 'ok');
+  broadcast({ type: 'coins-updated', userId: user.id, coins: user.coins });
+  res.json({ ok: true, coins: user.coins });
+});
+
+// Admin: list users with coins
+app.get('/api/users', requireAdmin, (req, res) => {
+  const users = loadUsers().map(u => ({
+    id: u.id, username: u.username, role: u.role, coins: u.coins, createdAt: u.createdAt
+  }));
+  res.json(users);
+});
+
+// Admin: delete user
+app.delete('/api/users/:id', requireAdmin, (req, res) => {
+  let users = loadUsers();
+  const user = users.find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.role === 'admin') return res.status(403).json({ error: 'Cannot delete admin' });
+  users = users.filter(u => u.id !== req.params.id);
+  saveUsers(users);
+  log(`Admin deleted user "${user.username}"`, 'warn');
+  res.json({ ok: true });
+});
+
+// ─── Session Routes ────────────────────────────────────────────────────────────
+app.get('/api/sessions', requireAuth, (req, res) => {
+  const sessions = loadSessions();
+  // Non-admins only see their own sessions
+  if (req.user.role === 'admin') return res.json(sessions);
+  res.json(sessions.filter(s => s.ownerId === req.user.id));
+});
+
+app.post('/api/sessions', requireAuth, (req, res) => {
+  const { ownerName, ownerNumber, sessionIdString, botName, prefix, timezone } = req.body || {};
+  if (!ownerName || !sessionIdString) return res.status(400).json({ error: 'ownerName and sessionIdString required' });
+
+  const sessions = loadSessions();
+  const newSess  = {
+    id: uuidv4(),
+    ownerId: req.user.id,
+    ownerName, ownerNumber: ownerNumber || '',
+    sessionIdString,
+    botName: botName || 'LadybugBot',
+    prefix: prefix || '.',
+    timezone: timezone || 'Africa/Harare',
+    status: 'stopped',
+    createdAt: new Date().toISOString()
+  };
+  sessions.push(newSess);
+  saveSessions(sessions);
+  log(`Session "${newSess.id}" created by "${req.user.username}"`, 'ok');
+  broadcast({ type: 'session-created', session: newSess });
+  res.json({ ok: true, session: newSess });
+});
+
+app.put('/api/sessions/:id', requireAuth, (req, res) => {
+  const sessions = loadSessions();
+  const idx = sessions.findIndex(s => s.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Session not found' });
+  if (req.user.role !== 'admin' && sessions[idx].ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const allowed = ['ownerName','ownerNumber','sessionIdString','botName','prefix','timezone'];
+  allowed.forEach(k => { if (req.body[k] !== undefined) sessions[idx][k] = req.body[k]; });
+  saveSessions(sessions);
+  broadcast({ type: 'session-updated', session: sessions[idx] });
+  res.json({ ok: true, session: sessions[idx] });
+});
+
+app.delete('/api/sessions/:id', requireAuth, (req, res) => {
+  let sessions = loadSessions();
+  const sess = sessions.find(s => s.id === req.params.id);
+  if (!sess) return res.status(404).json({ error: 'Session not found' });
+  if (req.user.role !== 'admin' && sess.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  stopBotProcess(sess.id);
+  sessions = sessions.filter(s => s.id !== req.params.id);
+  saveSessions(sessions);
+  log(`Session "${sess.id}" deleted`, 'warn');
+  broadcast({ type: 'session-deleted', sessionId: sess.id });
+  res.json({ ok: true });
+});
+
+// ─── Bot Control Routes ────────────────────────────────────────────────────────
+app.post('/api/bot/start', requireAuth, (req, res) => {
+  const { sessionId } = req.body || {};
+  const sessions = loadSessions();
+  const sess = sessions.find(s => s.id === sessionId);
+  if (!sess) return res.status(404).json({ error: 'Session not found' });
+  if (req.user.role !== 'admin' && sess.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  // Coin check (skip for admin)
+  if (req.user.role !== 'admin') {
+    const users = loadUsers();
+    const user  = users.find(u => u.id === req.user.id);
+    if (!user || user.coins < COIN_COST_START) {
+      return res.status(402).json({ error: `Not enough coins. Starting a bot costs ${COIN_COST_START} coins.` });
+    }
+    user.coins -= COIN_COST_START;
+    saveUsers(users);
+    broadcast({ type: 'coins-updated', userId: user.id, coins: user.coins });
+    log(`${COIN_COST_START} coins deducted from "${user.username}" for bot start (remaining: ${user.coins})`, 'warn');
+  }
+
+  startBotProcess(sess);
+  res.json({ ok: true });
+});
+
+app.post('/api/bot/stop', requireAuth, (req, res) => {
+  const { sessionId } = req.body || {};
+  const sessions = loadSessions();
+  const sess = sessions.find(s => s.id === sessionId);
+  if (!sess) return res.status(404).json({ error: 'Session not found' });
+  if (req.user.role !== 'admin' && sess.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  stopBotProcess(sessionId);
+  res.json({ ok: true });
+});
+
+app.post('/api/bot/restart', requireAuth, (req, res) => {
+  const { sessionId } = req.body || {};
+  const sessions = loadSessions();
+  const sess = sessions.find(s => s.id === sessionId);
+  if (!sess) return res.status(404).json({ error: 'Session not found' });
+  if (req.user.role !== 'admin' && sess.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  stopBotProcess(sessionId);
+  setTimeout(() => startBotProcess(sess), 1500);
+  res.json({ ok: true });
+});
+
+app.post('/api/bot/cleanup', requireAdmin, (req, res) => {
+  const result = runCleanup();
+  res.json({ ok: true, ...result });
+});
+
+// ─── Install Bot Route ─────────────────────────────────────────────────────────
+app.post('/api/install-bot', requireAdmin, (req, res) => {
   try {
-    const { username, email, password } = req.body;
-    
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'All fields are required' });
-    }
-
-    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-    if (existingUser) {
-      return res.status(400).json({ error: 'Username or email already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-      coins: 100 // Welcome bonus
+    log('Installing bot from GitHub...', 'info');
+    execSync('git clone --depth 1 https://github.com/dev-modder/Ladybug-Mini.git bot-src 2>&1 || (cd bot-src && git pull)', {
+      cwd: __dirname, stdio: 'pipe'
     });
-
-    const token = jwt.sign(
-      { id: user._id, username: user.username, isAdmin: user.isAdmin, coins: user.coins },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      message: 'Registration successful',
-      token,
-      user: { id: user._id, username: user.username, email: user.email, coins: user.coins, isAdmin: user.isAdmin, isPremium: user.isPremium }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    execSync('npm install', { cwd: path.join(__dirname, 'bot-src'), stdio: 'pipe' });
+    log('Bot installed successfully!', 'ok');
+    res.json({ ok: true });
+  } catch (err) {
+    log(`Bot install failed: ${err.message}`, 'error');
+    res.json({ ok: false, error: err.message });
   }
 });
 
-// Login
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+// ─── Status & Health ───────────────────────────────────────────────────────────
+app.get('/api/status', (req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    uptime:    Math.floor((Date.now() - state.startTime) / 1000),
+    pingCount: state.pingCount,
+    cleanCount: state.cleanCount,
+    mem
+  });
+});
 
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+app.get('/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
-    user.lastLogin = new Date();
-    await user.save();
+// ─── Serve HTML pages ──────────────────────────────────────────────────────────
+// Login page
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+// Dashboard (protected by client-side redirect)
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-    const token = jwt.sign(
-      { id: user._id, username: user.username, isAdmin: user.isAdmin, coins: user.coins },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: { id: user._id, username: user.username, email: user.email, coins: user.coins, isAdmin: user.isAdmin, isPremium: user.isPremium }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+// ─── Bot Process Manager ───────────────────────────────────────────────────────
+function setSessionStatus(sessionId, status) {
+  const sessions = loadSessions();
+  const sess = sessions.find(s => s.id === sessionId);
+  if (sess) {
+    sess.status = status;
+    saveSessions(sessions);
+    broadcast({ type: 'status', sessionId, status });
   }
-});
+}
 
-// Get current user
-app.get('/api/auth/me', authMiddleware, async (req, res) => {
-  res.json({ user: req.user });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Bots
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Get all bots (user sees their own, admin sees all)
-app.get('/api/bots', authMiddleware, async (req, res) => {
-  try {
-    const bots = req.user.isAdmin 
-      ? await Bot.find().populate('ownerId', 'username email').populate('approvedBy', 'username')
-      : await Bot.find({ ownerId: req.user._id });
-    res.json(bots);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+function startBotProcess(sess) {
+  if (state.botProcesses[sess.id]) {
+    log(`Bot "${sess.id}" is already running`, 'warn');
+    return;
   }
-});
 
-// Upload bot via file
-app.post('/api/bots/upload', authMiddleware, upload.single('botFile'), async (req, res) => {
-  try {
-    const { name, description, serverId, hostingDays } = req.body;
-    
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    const bot = await Bot.create({
-      name: name || req.file.originalname,
-      description,
-      ownerId: req.user._id,
-      ownerName: req.user.username,
-      status: 'pending',
-      sourceType: 'upload',
-      filePath: req.file.path,
-      serverId,
-      hostingDays: parseInt(hostingDays) || 7
-    });
-
-    res.json({ message: 'Bot uploaded successfully and pending approval', bot });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  const botDir = path.join(__dirname, 'bot-src');
+  if (!fs.existsSync(botDir)) {
+    log(`Bot source not found. Click "Install Bot" first.`, 'error');
+    setSessionStatus(sess.id, 'crashed');
+    return;
   }
-});
 
-// Upload bot via URL
-app.post('/api/bots/url', authMiddleware, async (req, res) => {
-  try {
-    const { name, description, serverId, hostingDays, url } = req.body;
-    
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
+  log(`Starting bot for session "${sess.id}" (${sess.ownerName})...`, 'info', sess.id);
+  setSessionStatus(sess.id, 'starting');
 
-    // Validate URL
-    let validatedUrl;
-    try {
-      validatedUrl = new URL(url);
-    } catch {
-      return res.status(400).json({ error: 'Invalid URL format' });
-    }
+  const env = {
+    ...process.env,
+    SESSION_ID: sess.sessionIdString,
+    BOT_NAME:   sess.botName || 'LadybugBot',
+    PREFIX:     sess.prefix  || '.',
+    OWNER_NUMBER: sess.ownerNumber || '',
+    TZ:         sess.timezone || 'Africa/Harare'
+  };
 
-    // Check if it's a GitHub URL
-    const isGithub = validatedUrl.hostname === 'github.com' || validatedUrl.hostname === 'raw.githubusercontent.com';
-    const sourceType = isGithub ? 'github' : 'url';
+  const proc = spawn('node', ['index.js'], { cwd: botDir, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  state.botProcesses[sess.id] = proc;
 
-    const bot = await Bot.create({
-      name: name || 'Bot from URL',
-      description,
-      ownerId: req.user._id,
-      ownerName: req.user.username,
-      status: 'pending',
-      sourceType,
-      sourceUrl: url,
-      serverId,
-      hostingDays: parseInt(hostingDays) || 7
-    });
+  proc.stdout.on('data', d => log(d.toString().trim(), 'bot', sess.id));
+  proc.stderr.on('data', d => log(d.toString().trim(), 'warn', sess.id));
 
-    res.json({ message: 'Bot URL submitted successfully and pending approval', bot });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  proc.on('spawn', () => setSessionStatus(sess.id, 'running'));
+
+  proc.on('exit', (code) => {
+    delete state.botProcesses[sess.id];
+    const status = code === 0 ? 'stopped' : 'crashed';
+    setSessionStatus(sess.id, status);
+    log(`Bot "${sess.id}" exited with code ${code} → ${status}`, code === 0 ? 'warn' : 'error', sess.id);
+  });
+}
+
+function stopBotProcess(sessionId) {
+  const proc = state.botProcesses[sessionId];
+  if (proc) {
+    proc.kill('SIGTERM');
+    delete state.botProcesses[sessionId];
+    setSessionStatus(sessionId, 'stopped');
+    log(`Bot "${sessionId}" stopped`, 'warn', sessionId);
   }
-});
+}
 
-// Get bot details
-app.get('/api/bots/:id', authMiddleware, async (req, res) => {
+// ─── Cleanup ───────────────────────────────────────────────────────────────────
+function runCleanup() {
+  const tmpDir = '/tmp';
+  let removed = 0, freedBytes = 0;
   try {
-    const bot = await Bot.findById(req.params.id).populate('ownerId', 'username email');
-    if (!bot) {
-      return res.status(404).json({ error: 'Bot not found' });
-    }
-    
-    // Check ownership or admin
-    if (!req.user.isAdmin &amp;&amp; bot.ownerId._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    res.json(bot);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update bot
-app.put('/api/bots/:id', authMiddleware, async (req, res) => {
-  try {
-    const bot = await Bot.findById(req.params.id);
-    if (!bot) {
-      return res.status(404).json({ error: 'Bot not found' });
-    }
-    
-    // Check ownership
-    if (!req.user.isAdmin &amp;&amp; bot.ownerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    const { name, description } = req.body;
-    if (name) bot.name = name;
-    if (description) bot.description = description;
-    
-    await bot.save();
-    res.json({ message: 'Bot updated successfully', bot });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete bot
-app.delete('/api/bots/:id', authMiddleware, async (req, res) => {
-  try {
-    const bot = await Bot.findById(req.params.id);
-    if (!bot) {
-      return res.status(404).json({ error: 'Bot not found' });
-    }
-    
-    // Check ownership or admin
-    if (!req.user.isAdmin &amp;&amp; bot.ownerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    // Stop bot if running
-    if (bot.pid) {
+    const files = fs.readdirSync(tmpDir);
+    const cutoff = Date.now() - 60 * 60 * 1000; // 1 hour
+    for (const f of files) {
+      const fp = path.join(tmpDir, f);
       try {
-        process.kill(bot.pid, 'SIGTERM');
-      } catch (e) {}
+        const stat = fs.statSync(fp);
+        if (stat.mtimeMs < cutoff) {
+          freedBytes += stat.size;
+          fs.rmSync(fp, { recursive: true, force: true });
+          removed++;
+        }
+      } catch {}
     }
-    
-    // Delete files
-    if (bot.filePath &amp;&amp; fs.existsSync(bot.filePath)) {
-      fs.unlinkSync(bot.filePath);
-    }
-    
-    await Bot.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Bot deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  } catch {}
+  state.cleanCount++;
+  const freedMB = (freedBytes / 1024 / 1024).toFixed(2);
+  log(`Cleanup done: removed ${removed} files, freed ${freedMB} MB`, 'ok');
+  broadcast({ type: 'cleanup', cleanCount: state.cleanCount, removed, freedMB, ts: Date.now() });
+  return { removed, freedMB };
+}
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Admin Bot Management
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Get pending bots
-app.get('/api/admin/bots/pending', authMiddleware, adminMiddleware, async (req, res) => {
+// ─── Keep-Alive Ping ───────────────────────────────────────────────────────────
+async function keepAlivePing() {
+  if (!RENDER_URL) return;
   try {
-    const bots = await Bot.find({ status: 'pending' }).populate('ownerId', 'username email');
-    res.json(bots);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    await fetch(`${RENDER_URL}/health`);
+    state.pingCount++;
+    log(`Keep-alive ping #${state.pingCount}`, 'info');
+    broadcast({ type: 'ping', pingCount: state.pingCount, ts: Date.now() });
+  } catch (err) {
+    log(`Keep-alive ping failed: ${err.message}`, 'warn');
   }
-});
+}
 
-// Approve bot
-app.post('/api/admin/bots/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const bot = await Bot.findById(req.params.id).populate('ownerId');
-    if (!bot) {
-      return res.status(404).json({ error: 'Bot not found' });
-    }
+setInterval(keepAlivePing, PING_INTERVAL_MS);
 
-    const owner = await User.findById(bot.ownerId._id);
-    
-    // Calculate cost
-    const service = await Service.findOne({ duration: bot.hostingDays });
-    const cost = service ? service.cost : 50 * bot.hostingDays;
-    
-    // Check if owner has enough coins (admin bots are free)
-    if (!owner.isAdmin &amp;&amp; owner.coins < cost) {
-      return res.status(400).json({ error: 'Owner does not have enough coins' });
-    }
+// ─── WebSocket Server ──────────────────────────────────────────────────────────
+const wss = new WebSocket.Server({ server });
 
-    // Deduct coins
-    if (!owner.isAdmin) {
-      owner.coins -= cost;
-      await owner.save();
-      
-      await Transaction.create({
-        userId: owner._id,
-        type: 'purchase',
-        amount: -cost,
-        description: `Bot hosting: ${bot.name} for ${bot.hostingDays} days`,
-        botId: bot._id
-      });
-    }
+const clients = new Set();
 
-    // Set expiration
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + bot.hostingDays);
-
-    bot.status = 'approved';
-    bot.coinsSpent = cost;
-    bot.expiresAt = expiresAt;
-    bot.approvedAt = new Date();
-    bot.approvedBy = req.user._id;
-    await bot.save();
-
-    res.json({ message: 'Bot approved successfully', bot });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+function broadcast(data) {
+  const msg = JSON.stringify(data);
+  for (const ws of clients) {
+    if (ws.readyState === WebSocket.OPEN) ws.send(msg);
   }
-});
-
-// Reject bot
-app.post('/api/admin/bots/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const { reason } = req.body;
-    const bot = await Bot.findById(req.params.id);
-    if (!bot) {
-      return res.status(404).json({ error: 'Bot not found' });
-    }
-
-    bot.status = 'rejected';
-    bot.rejectionReason = reason || 'Not specified';
-    await bot.save();
-
-    res.json({ message: 'Bot rejected', bot });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Start bot (host it)
-app.post('/api/admin/bots/:id/start', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const bot = await Bot.findById(req.params.id);
-    if (!bot) {
-      return res.status(404).json({ error: 'Bot not found' });
-    }
-
-    if (bot.status !== 'approved') {
-      return res.status(400).json({ error: 'Bot must be approved first' });
-    }
-
-    // Find available server
-    const targetServer = await Server.findById(bot.serverId) || await Server.findOne({ status: 'online' });
-    if (!targetServer) {
-      return res.status(400).json({ error: 'No available server' });
-    }
-
-    // Get bot files ready
-    let botPath = bot.filePath;
-    if (bot.sourceType === 'github' || bot.sourceType === 'url') {
-      // Clone from URL
-      const cloneDir = path.join(BOTS_DIR, bot._id.toString());
-      if (!fs.existsSync(cloneDir)) {
-        fs.mkdirSync(cloneDir, { recursive: true });
-        execSync(`git clone ${bot.sourceUrl} .`, { cwd: cloneDir, stdio: 'inherit' });
-      }
-      botPath = cloneDir;
-    }
-
-    // Install dependencies if package.json exists
-    const packageJsonPath = path.join(botPath, 'package.json');
-    if (fs.existsSync(packageJsonPath)) {
-      log('INFO', `Installing dependencies for ${bot.name}...`);
-      execSync('npm install', { cwd: botPath, stdio: 'inherit' });
-    }
-
-    // Start the bot
-    const entryPoint = fs.existsSync(path.join(botPath, 'index.js')) ? 'index.js' : 
-                       fs.existsSync(path.join(botPath, 'main.js')) ? 'main.js' :
-                       fs.existsSync(path.join(botPath, 'app.js')) ? 'app.js' : null;
-
-    if (!entryPoint) {
-      return res.status(400).json({ error: 'No entry point found (index.js, main.js, or app.js)' });
-    }
-
-    const botProcess = spawn('node', [entryPoint], {
-      cwd: botPath,
-      env: { ...process.env, BOT_NAME: bot.name, SESSION_NAME: bot.sessionName || 'session' },
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    bot.pid = botProcess.pid;
-    bot.status = 'running';
-    bot.port = targetServer.port;
-    await bot.save();
-
-    targetServer.activeBots += 1;
-    await targetServer.save();
-
-    // Handle bot output
-    botProcess.stdout.on('data', (data) => {
-      log('INFO', `[${bot.name}] ${data.toString()}`);
-    });
-
-    botProcess.stderr.on('data', (data) => {
-      log('ERR', `[${bot.name}] ${data.toString()}`);
-    });
-
-    botProcess.on('close', async () => {
-      bot.status = 'stopped';
-      bot.pid = null;
-      await bot.save();
-      
-      targetServer.activeBots -= 1;
-      await targetServer.save();
-      
-      log('WARN', `Bot ${bot.name} stopped`);
-    });
-
-    res.json({ message: `Bot "${bot.name}" started successfully`, bot });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Stop bot
-app.post('/api/admin/bots/:id/stop', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const bot = await Bot.findById(req.params.id);
-    if (!bot) {
-      return res.status(404).json({ error: 'Bot not found' });
-    }
-
-    if (bot.pid) {
-      try {
-        process.kill(bot.pid, 'SIGTERM');
-      } catch (e) {}
-    }
-
-    bot.status = 'stopped';
-    bot.pid = null;
-    await bot.save();
-
-    res.json({ message: 'Bot stopped successfully', bot });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Servers
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Get all servers
-app.get('/api/servers', async (req, res) => {
-  try {
-    const servers = await Server.find();
-    res.json(servers);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Create server (admin only)
-app.post('/api/admin/servers', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const { name, region, host, maxBots, specs } = req.body;
-    const server = await Server.create({ name, region, host, maxBots, specs });
-    res.json({ message: 'Server created successfully', server });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update server (admin only)
-app.put('/api/admin/servers/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const server = await Server.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json({ message: 'Server updated successfully', server });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete server (admin only)
-app.delete('/api/admin/servers/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    await Server.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Server deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Services
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Get all services
-app.get('/api/services', async (req, res) => {
-  try {
-    const services = await Service.find({ active: true });
-    res.json(services);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Create service (admin only)
-app.post('/api/admin/services', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const service = await Service.create(req.body);
-    res.json({ message: 'Service created successfully', service });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update service (admin only)
-app.put('/api/admin/services/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const service = await Service.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json({ message: 'Service updated successfully', service });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete service (admin only)
-app.delete('/api/admin/services/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    await Service.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Service deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Admin User Management
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Get all users
-app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const users = await User.find().select('-password');
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Adjust user coins
-app.post('/api/admin/users/:id/coins', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const { amount, reason } = req.body;
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    user.coins += amount;
-    await user.save();
-
-    await Transaction.create({
-      userId: user._id,
-      type: amount > 0 ? 'admin_add' : 'admin_deduct',
-      amount,
-      description: reason || 'Admin adjustment'
-    });
-
-    res.json({ message: 'Coins adjusted successfully', user });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update user
-app.put('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).select('-password');
-    res.json({ message: 'User updated successfully', user });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete user
-app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Transactions
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Get user transactions
-app.get('/api/transactions', authMiddleware, async (req, res) => {
-  try {
-    const transactions = await Transaction.find({ userId: req.user._id }).sort({ createdAt: -1 });
-    res.json(transactions);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get all transactions (admin)
-app.get('/api/admin/transactions', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const transactions = await Transaction.find().populate('userId', 'username email').sort({ createdAt: -1 });
-    res.json(transactions);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// API Routes - Dashboard Stats
-// ═══════════════════════════════════════════════════════════════════════════════
-
-app.get('/api/stats', authMiddleware, async (req, res) => {
-  try {
-    const userBots = await Bot.find({ ownerId: req.user._id });
-    const stats = {
-      totalBots: userBots.length,
-      runningBots: userBots.filter(b => b.status === 'running').length,
-      pendingBots: userBots.filter(b => b.status === 'pending').length,
-      coins: req.user.coins,
-      isAdmin: req.user.isAdmin
-    };
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const stats = {
-      totalUsers: await User.countDocuments(),
-      totalBots: await Bot.countDocuments(),
-      runningBots: await Bot.countDocuments({ status: 'running' }),
-      pendingBots: await Bot.countDocuments({ status: 'pending' }),
-      totalServers: await Server.countDocuments(),
-      onlineServers: await Server.countDocuments({ status: 'online' }),
-      totalCoins: (await User.aggregate([{ $group: { _id: null, total: { $sum: '$coins' } } }]))[0]?.total || 0
-    };
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// WebSocket Server
-// ═══════════════════════════════════════════════════════════════════════════════
+}
 
 wss.on('connection', (ws) => {
-  log('INFO', 'WebSocket client connected');
-  ws.on('close', () => log('INFO', 'WebSocket client disconnected'));
-});
+  clients.add(ws);
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Scheduled Tasks
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// Self-ping keep-alive
-if (RENDER_URL) {
-  cron.schedule(`*/${PING_INTERVAL} * * * *`, async () => {
-    try {
-      await fetch(RENDER_URL);
-      log('INFO', 'Keep-alive ping sent');
-    } catch (error) {
-      log('ERR', 'Keep-alive ping failed: ' + error.message);
+  // Send initial state
+  const sessions = loadSessions();
+  ws.send(JSON.stringify({
+    type: 'init',
+    logs: logBuffer.slice(-150),
+    sessions,
+    serverStatus: {
+      uptime:    Math.floor((Date.now() - state.startTime) / 1000),
+      pingCount: state.pingCount,
+      cleanCount: state.cleanCount,
+      mem:       process.memoryUsage()
     }
-  });
-} else {
-  log('WARN', 'RENDER_URL not set — skipping keep-alive ping');
-}
+  }));
 
-// Cleanup expired bots
-cron.schedule('0 * * * *', async () => {
-  try {
-    const expiredBots = await Bot.find({ status: 'running', expiresAt: { $lt: new Date() } });
-    for (const bot of expiredBots) {
-      if (bot.pid) {
-        try {
-          process.kill(bot.pid, 'SIGTERM');
-        } catch (e) {}
-      }
-      bot.status = 'expired';
-      bot.pid = null;
-      await bot.save();
-      log('INFO', `Bot ${bot.name} expired and stopped`);
-    }
-  } catch (error) {
-    log('ERR', 'Bot cleanup error: ' + error.message);
-  }
+  ws.on('close', () => clients.delete(ws));
+  ws.on('error', () => clients.delete(ws));
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Start Server
-// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Cron Jobs ─────────────────────────────────────────────────────────────────
+// Cleanup every 6 hours
+cron.schedule('0 */6 * * *', runCleanup);
 
-server.listen(PORT, async () => {
-  await initializeData();
-  
-  console.log('\x1b[32m[  OK ]\x1b[0m ╔══════════════════════════════════════════════╗');
-  console.log('\x1b[32m[  OK ]\x1b[0m ║  LadybugNodes Host \u2022  Port ' + PORT + '           ║');
-  console.log('\x1b[32m[  OK ]\x1b[0m ║  Dashboard → http://localhost:' + PORT + '          ║');
-  console.log('\x1b[32m[  OK ]\x1b[0m ╚══════════════════════════════════════════════╝');
-  log('INFO', 'Developer: Dev-Ntando');
-  log('INFO', 'Version: 4.0.0 with MongoDB');
+// ─── Start ─────────────────────────────────────────────────────────────────────
+server.listen(PORT, () => {
+  log(`LADYBUGNODES running on port ${PORT}`, 'ok');
+  if (RENDER_URL) log(`Keep-alive targeting: ${RENDER_URL}`, 'info');
+  else log(`Set RENDER_URL env var to enable keep-alive pings`, 'warn');
 });
 
-module.exports = app;
+process.on('SIGTERM', () => {
+  log('SIGTERM received — shutting down bots...', 'warn');
+  Object.keys(state.botProcesses).forEach(stopBotProcess);
+  process.exit(0);
+});

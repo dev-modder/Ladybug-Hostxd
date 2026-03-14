@@ -1,68 +1,18 @@
-# ────────────────────────────────────────────────────────────────────────────────
-#  render.yaml — Ladybug-Mini Multi-Host Platform
-#  Deploy this file on Render.com (free tier)
-#  Developer: Dev-Ntando
-# ────────────────────────────────────────────────────────────────────────────────
-
 services:
   - type: web
-    name: ladybug-mini-host
+    name: ladybugnodes
     runtime: node
-    plan: free
-
-    # Root directory of THIS hosting repo (not the bot itself)
-    rootDir: .
-
-    buildCommand: |
-      npm install --omit=dev &&
-      git clone --depth 1 https://github.com/dev-modder/Ladybug-Mini.git ./Ladybug-Mini &&
-      cd ./Ladybug-Mini &&
-      PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --omit=dev
-
+    buildCommand: npm install
     startCommand: node server.js
-
-    healthCheckPath: /health
-
-    autoDeploy: true
-
-    # Persistent disk for session data (optional - recommended for production)
-    disk:
-      name: ladybug-data
-      mountPath: /opt/render/project/data
-      sizeGB: 1
-
+    plan: free
     envVars:
-      # Render injects PORT automatically — do not set it here
       - key: NODE_ENV
         value: production
-
-      # ─── Set these in the Render dashboard (Environment tab) ───────────────────
       - key: RENDER_URL
-        sync: false           # Set manually: https://your-service.onrender.com
-
-      - key: DASHBOARD_PIN
-        sync: false           # Optional: protect dashboard with a PIN
-
-      # Default bot settings (can be overridden per session)
-      - key: BOT_NAME
-        value: Ladybug Bot Mini
-
-      - key: PREFIX
-        value: "."
-
-      - key: TIMEZONE
-        value: Asia/Kolkata
-
-      - key: PING_INTERVAL
-        value: "14"           # minutes — keeps free tier awake
-
-      - key: CLEANUP_INTERVAL
-        value: "30"           # minutes — auto temp-file cleanup
-
-      # Optional API keys
-      - key: OPENAI_API_KEY
         sync: false
-      - key: DEEPAI_API_KEY
+      - key: ADMIN_USERNAME
         sync: false
-      - key: REMOVE_BG_API_KEY
+      - key: ADMIN_PASSWORD
         sync: false
+      - key: JWT_SECRET
+        generateValue: true
