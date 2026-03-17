@@ -1,22 +1,24 @@
 services:
   - type: web
     name: ladybugnodes
-    env: node
-    plan: free
+    runtime: node
     buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /health
+    startCommand: node server.js
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
+      - key: RENDER_URL
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: SESSION_SECRET
-        generateValue: true
-      - key: ADMIN_USERNAME
-        value: admin
-      - key: ADMIN_PASSWORD
+      - key: MONGODB_URI
         sync: false
-    autoDeploy: true
+    disk:
+      name: ladybugnodes-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
