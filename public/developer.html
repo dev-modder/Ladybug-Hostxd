@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LADYBUGNODES · Developer Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0b0e; --surface: #111318; --surface2: #181c22; --border: #1e242e;
+      --red: #ff3b5c; --red-dim: rgba(255,59,92,0.12);
+      --green: #00e676; --green-dim: rgba(0,230,118,0.10);
+      --amber: #ffab40; --amber-dim: rgba(255,171,64,0.12);
+      --blue: #40c4ff; --blue-dim: rgba(64,196,255,0.10);
+      --purple: #b388ff; --purple-dim: rgba(179,136,255,0.10);
+      --gold: #ffd700; --gold-dim: rgba(255,215,0,0.12);
+      --muted: #4a5568; --text: #e2e8f0; --text-dim: #718096;
+      --font-mono: 'JetBrains Mono', monospace; --font-sans: 'Syne', sans-serif;
+      --radius: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-sans); min-height: 100vh; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(179,136,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(179,136,255,0.02) 1px, transparent 1px); background-size: 48px 48px; pointer-events: none; z-index: 0; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+    header { border-bottom: 1px solid var(--border); background: rgba(10,11,14,0.92); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; flex-wrap: wrap; }
+    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo-icon { width: 44px; height: 44px; background: var(--purple-dim); border: 1px solid rgba(179,136,255,0.3); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .logo-text h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text h1 span { color: var(--purple); }
+    .logo-text p { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 3px; }
+    .nav-tabs { display: flex; gap: 4px; }
+    .nav-tab { padding: 9px 16px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-dim); font-family: var(--font-sans); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .nav-tab:hover { background: var(--surface); color: var(--text); }
+    .nav-tab.active { background: var(--purple-dim); border-color: rgba(179,136,255,0.3); color: var(--purple); }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .user-info { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; font-family: var(--font-mono); font-size: 12px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: none; font-family: var(--font-sans); font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; text-decoration: none; }
+    .btn:hover { opacity: 0.85; } .btn:active { transform: scale(0.97); }
+    .btn-add     { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(179,136,255,0.25); }
+    .btn-github  { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(64,196,255,0.25); }
+    .btn-danger  { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,59,92,0.25); }
+    .btn-logout  { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-copy    { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); padding: 6px 12px; font-size: 11px; }
+    .btn-regen   { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,171,64,0.25); padding: 6px 12px; font-size: 11px; }
+    .btn-save    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+    .btn-pull    { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,171,64,0.25); }
+
+    main { padding: 28px 0 60px; }
+    .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); margin: 32px 0 16px; display: flex; align-items: center; gap: 10px; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* Dev Hero */
+    .dev-hero { background: linear-gradient(135deg, var(--surface) 0%, rgba(179,136,255,0.05) 100%); border: 1px solid rgba(179,136,255,0.2); border-radius: var(--radius); padding: 32px; margin-bottom: 8px; position: relative; overflow: hidden; }
+    .dev-hero::before { content: '💻'; position: absolute; right: 24px; top: 50%; transform: translateY(-50%); font-size: 80px; opacity: 0.08; }
+    .dev-hero h2 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .dev-hero h2 span { color: var(--purple); }
+    .dev-hero p { color: var(--text-dim); font-family: var(--font-mono); font-size: 13px; line-height: 1.7; max-width: 600px; }
+
+    /* Cards grid */
+    .dev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+    .dev-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+    .dev-card-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+    /* API Key */
+    .api-key-row { display: flex; gap: 8px; align-items: center; }
+    .api-key-display { flex: 1; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--purple); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Profile */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; font-family: var(--font-mono); }
+    .form-input { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 13px; transition: border-color 0.2s; outline: none; }
+    .form-input:focus { border-color: var(--purple); }
+    .form-textarea { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-mono); font-size: 13px; min-height: 80px; resize: vertical; outline: none; }
+    .form-textarea:focus { border-color: var(--purple); }
+
+    /* Bots table */
+    .bots-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .bots-table th { padding: 10px 12px; background: var(--surface2); color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; font-weight: 700; text-align: left; border-bottom: 1px solid var(--border); }
+    .bots-table td { padding: 10px 12px; border-bottom: 1px solid rgba(30,36,46,0.5); vertical-align: middle; }
+    .bots-table tr:last-child td { border-bottom: none; }
+    .bots-table tr:hover td { background: var(--surface2); }
+
+    /* Info box */
+    .info-box { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--purple); border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+    .info-box p { font-size: 12px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.7; }
+    .info-box code { color: var(--blue); background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+
+    /* Steps */
+    .steps { counter-reset: step; display: flex; flex-direction: column; gap: 12px; }
+    .step { display: flex; gap: 14px; align-items: flex-start; }
+    .step-num { counter-increment: step; content: counter(step); width: 28px; height: 28px; min-width: 28px; background: var(--purple-dim); border: 1px solid rgba(179,136,255,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--purple); font-family: var(--font-mono); }
+    .step-text { font-size: 13px; color: var(--text-dim); font-family: var(--font-mono); padding-top: 5px; line-height: 1.6; }
+    .step-text code { color: var(--blue); background: var(--bg); padding: 1px 6px; border-radius: 4px; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: all 0.25s; }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; transform: translateY(20px); transition: transform 0.25s; }
+    .modal-overlay.active .modal { transform: translateY(0); }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+    .modal-title { font-weight: 700; font-size: 16px; }
+    .modal-close { background: none; border: none; color: var(--text-dim); font-size: 24px; cursor: pointer; line-height: 1; }
+    .modal-close:hover { color: var(--red); }
+    .modal-body { padding: 22px; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 22px; border-top: 1px solid var(--border); background: var(--surface2); }
+
+    .meta-chip { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-family: var(--font-mono); font-weight: 600; }
+    .chip-github { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(64,196,255,0.25); }
+    .chip-zip    { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,171,64,0.25); }
+    .chip-local  { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast-item { padding: 12px 18px; border-radius: 10px; font-family: var(--font-mono); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards; max-width: 360px; }
+    .toast-item.ok    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.3); }
+    .toast-item.error { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,59,92,0.3); }
+    .toast-item.info  { background: var(--blue-dim);  color: var(--blue);  border: 1px solid rgba(64,196,255,0.3); }
+    @keyframes toastIn  { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; } }
+    @keyframes toastOut { to { opacity: 0; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">💻</div>
+        <div class="logo-text">
+          <h1>LADYBUG<span>NODES</span></h1>
+          <p>developer portal</p>
+        </div>
+      </div>
+      <nav class="nav-tabs">
+        <a href="/" class="nav-tab">📊 Dashboard</a>
+        <a href="/panel-bots.html" class="nav-tab">📦 Panel Bots</a>
+        <a href="/developer.html" class="nav-tab active">💻 Developer</a>
+      </nav>
+      <div class="header-actions">
+        <div class="user-info">
+          <span id="user-name">—</span>
+          <span style="color:var(--purple);font-size:10px;font-family:var(--font-mono)">developer</span>
+        </div>
+        <button class="btn btn-logout" onclick="logout()">🚪 Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="container">
+
+  <div class="dev-hero">
+    <h2>Developer <span>Portal</span></h2>
+    <p>Welcome, developer. Add your bot scripts via GitHub URL or ZIP upload, manage your API key, and track your deployments — all from here.</p>
+  </div>
+
+  <!-- API Key + Profile -->
+  <div class="section-title">Your Developer Account</div>
+  <div class="dev-grid" style="margin-bottom:24px">
+
+    <div class="dev-card">
+      <div class="dev-card-title">🔑 API Key</div>
+      <div class="api-key-row" style="margin-bottom:10px">
+        <div class="api-key-display" id="api-key-display">Loading…</div>
+        <button class="btn btn-copy" onclick="copyApiKey()">📋 Copy</button>
+      </div>
+      <button class="btn btn-regen" onclick="regenKey()">🔄 Regenerate Key</button>
+      <p style="font-size:11px;color:var(--text-dim);font-family:var(--font-mono);margin-top:12px;line-height:1.6">Use this key to authenticate API requests from your bot scripts.</p>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-card-title">👤 GitHub Profile</div>
+      <div class="form-group">
+        <label class="form-label">Your GitHub Profile URL</label>
+        <input class="form-input" type="url" id="gh-profile" placeholder="https://github.com/yourusername" />
+      </div>
+      <button class="btn btn-save" onclick="saveProfile()">💾 Save Profile</button>
+    </div>
+
+  </div>
+
+  <!-- How to add a bot -->
+  <div class="section-title">How to Add Your Bot Script</div>
+  <div class="dev-card" style="margin-bottom:24px">
+    <div class="info-box">
+      <p>Your bot script will be fetched from GitHub and saved on the server. Users can then assign it to their sessions. The script is executed with Node.js and receives session data via environment variables: <code>SESSION_ID</code>, <code>BOT_NAME</code>, <code>OWNER_NUMBER</code>, <code>PREFIX</code>, <code>TIMEZONE</code>.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-text">Create a <strong>public</strong> GitHub repository with your bot script. The entry point must be <code>index.js</code>.</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">Navigate to your file on GitHub and copy the URL — e.g. <code>https://github.com/you/repo/blob/main/index.js</code></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">Click <strong>"🔗 Add via GitHub URL"</strong> below, paste the URL, and submit.</div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text">Users can assign your bot to their sessions from the Dashboard. You can push updates anytime — just click <strong>↻ Pull Update</strong>.</div></div>
+    </div>
+  </div>
+
+  <!-- My Bots -->
+  <div class="section-title">My Bot Scripts</div>
+  <div style="display:flex;gap:10px;margin-bottom:16px">
+    <button class="btn btn-github" onclick="openGithubModal()">🔗 Add via GitHub URL</button>
+    <button class="btn btn-add" onclick="openUploadModal()">📦 Upload ZIP</button>
+  </div>
+  <div class="dev-card" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto">
+      <table class="bots-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>GitHub URL</th>
+            <th>Version</th>
+            <th>Added</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bots-tbody">
+          <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);font-family:var(--font-mono)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<!-- GitHub URL Modal -->
+<div class="modal-overlay" id="github-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔗 Add Bot via GitHub URL</div>
+      <button class="modal-close" onclick="closeModal('github-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-box">
+        <p>Paste the GitHub link to your bot's <code>index.js</code> file.<br/>
+        Example: <code>https://github.com/you/repo/blob/main/index.js</code><br/>
+        Repository must be <strong>public</strong>.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bot Name *</label>
+        <input class="form-input" type="text" id="gh-name" placeholder="e.g. My Awesome Bot" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="gh-desc" placeholder="What does this bot do?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">GitHub URL *</label>
+        <input class="form-input" type="url" id="gh-url" placeholder="https://github.com/user/repo/blob/main/index.js" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-logout" onclick="closeModal('github-modal')">Cancel</button>
+      <button class="btn btn-github" onclick="addGithubBot()">🔗 Add Bot</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload ZIP Modal -->
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📦 Upload Bot (ZIP)</div>
+      <button class="modal-close" onclick="closeModal('upload-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-box">
+        <p>Upload a <code>.zip</code> file containing your bot. Must include <code>index.js</code> as entry point. Max 50MB.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bot Name *</label>
+        <input class="form-input" type="text" id="zip-name" placeholder="e.g. My Bot" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="zip-desc" placeholder="What does this bot do?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ZIP File *</label>
+        <input class="form-input" type="file" id="zip-file" accept=".zip" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-logout" onclick="closeModal('upload-modal')">Cancel</button>
+      <button class="btn btn-add" onclick="uploadZip()">📤 Upload</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const token    = localStorage.getItem('lb_token');
+const username = localStorage.getItem('lb_username');
+const role     = localStorage.getItem('lb_role');
+
+if (!token) { window.location.href = '/login.html'; }
+if (role !== 'developer' && role !== 'admin') { window.location.href = '/'; }
+
+document.getElementById('user-name').textContent = username;
+
+function authHeaders(json = true) {
+  const h = { 'Authorization': `Bearer ${token}` };
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+function logout() {
+  fetch('/api/auth/logout', { method: 'POST' });
+  localStorage.clear();
+  window.location.href = '/login.html';
+}
+
+// ─── Load profile ─────────────────────────────────────────────────────────────
+async function loadMe() {
+  try {
+    const r = await fetch('/api/auth/me', { headers: authHeaders() });
+    const d = await r.json();
+    document.getElementById('api-key-display').textContent = d.apiKey || 'No key — click Regenerate';
+    document.getElementById('gh-profile').value = d.githubUrl || '';
+  } catch {}
+}
+
+async function copyApiKey() {
+  const key = document.getElementById('api-key-display').textContent;
+  await navigator.clipboard.writeText(key);
+  toast('API key copied!', 'ok');
+}
+
+async function regenKey() {
+  if (!confirm('Regenerate API key? Your old key will stop working immediately.')) return;
+  try {
+    const r = await fetch('/api/developer/regen-key', { method:'POST', headers: authHeaders() });
+    const d = await r.json();
+    if (d.ok) { document.getElementById('api-key-display').textContent = d.apiKey; toast('New key generated', 'ok'); }
+    else toast(d.error || 'Failed', 'error');
+  } catch (e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function saveProfile() {
+  const githubUrl = document.getElementById('gh-profile').value.trim();
+  try {
+    const r = await fetch('/api/developer/profile', { method:'PATCH', headers: authHeaders(), body: JSON.stringify({ githubUrl }) });
+    const d = await r.json();
+    if (d.ok) toast('Profile saved', 'ok');
+    else toast(d.error || 'Failed', 'error');
+  } catch (e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+// ─── Bots ─────────────────────────────────────────────────────────────────────
+async function fetchMyBots() {
+  try {
+    const r = await fetch('/api/panel-bots', { headers: authHeaders() });
+    const bots = await r.json();
+    const mine = bots.filter(b => b.author === username || role === 'admin');
+    renderBots(mine);
+  } catch (e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+function renderBots(bots) {
+  const tb = document.getElementById('bots-tbody');
+  if (!bots.length) {
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-dim);font-family:var(--font-mono)">No bots yet — add one above</td></tr>`;
+    return;
+  }
+  tb.innerHTML = bots.map(b => `
+    <tr>
+      <td style="font-weight:700">${esc(b.name)}</td>
+      <td><span class="meta-chip chip-${b.type}">${b.type}</span></td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--blue)">
+        ${b.githubUrl ? `<a href="${esc(b.githubUrl)}" target="_blank" rel="noopener" style="color:var(--blue)">${esc(b.githubUrl.length>40?b.githubUrl.slice(0,40)+'…':b.githubUrl)}</a>` : '—'}
+      </td>
+      <td style="font-family:var(--font-mono);font-size:11px">${esc(b.version||'1.0.0')}</td>
+      <td style="font-size:11px;color:var(--text-dim)">${new Date(b.createdAt).toLocaleDateString()}</td>
+      <td style="display:flex;gap:6px;align-items:center">
+        ${b.type === 'github' ? `<button class="btn btn-pull" style="padding:5px 10px;font-size:11px" onclick="pullBot('${b.id}')">↻ Pull</button>` : ''}
+        <button class="btn btn-danger" style="padding:5px 10px;font-size:11px" onclick="deleteBot('${b.id}','${esc(b.name)}')">🗑</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function addGithubBot() {
+  const name      = document.getElementById('gh-name').value.trim();
+  const desc      = document.getElementById('gh-desc').value.trim();
+  const githubUrl = document.getElementById('gh-url').value.trim();
+  if (!name)      { toast('Bot name required', 'error'); return; }
+  if (!githubUrl) { toast('GitHub URL required', 'error'); return; }
+  try {
+    const r = await fetch('/api/panel-bots/github', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ name, description: desc, githubUrl }),
+    });
+    const d = await r.json();
+    if (d.ok) { closeModal('github-modal'); toast('Bot added!', 'ok'); fetchMyBots(); clearGhForm(); }
+    else toast(d.error || 'Failed', 'error');
+  } catch (e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function uploadZip() {
+  const name = document.getElementById('zip-name').value.trim();
+  const desc = document.getElementById('zip-desc').value.trim();
+  const file = document.getElementById('zip-file').files[0];
+  if (!name) { toast('Bot name required', 'error'); return; }
+  if (!file) { toast('Please select a ZIP file', 'error'); return; }
+  const fd = new FormData();
+  fd.append('name', name); fd.append('description', desc); fd.append('botZip', file);
+  try {
+    const r = await fetch('/api/panel-bots/upload', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: fd,
+    });
+    const d = await r.json();
+    if (d.ok) { closeModal('upload-modal'); toast('Bot uploaded!', 'ok'); fetchMyBots(); }
+    else toast(d.error || 'Upload failed', 'error');
+  } catch (e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function pullBot(id) {
+  try {
+    const r = await fetch(`/api/panel-bots/${id}/pull`, { method: 'POST', headers: authHeaders() });
+    const d = await r.json();
+    if (d.ok) toast('Script updated from GitHub!', 'ok');
+    else toast(d.error || 'Failed to pull', 'error');
+    fetchMyBots();
+  } catch (e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function deleteBot(id, name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  try {
+    const r = await fetch(`/api/panel-bots/${id}`, { method: 'DELETE', headers: authHeaders() });
+    const d = await r.json();
+    if (d.ok) { toast('Bot deleted', 'ok'); fetchMyBots(); }
+    else toast(d.error || 'Failed', 'error');
+  } catch (e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+function clearGhForm() {
+  ['gh-name','gh-desc','gh-url'].forEach(id => document.getElementById(id).value = '');
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function openGithubModal() { openModal('github-modal'); }
+function openUploadModal() { openModal('upload-modal'); }
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+});
+
+function esc(s = '') { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function toast(msg, type = 'info') {
+  const icons = { ok:'✅', error:'❌', info:'ℹ️' };
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.innerHTML = `<span>${icons[type]}</span><span>${esc(msg)}</span>`;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+loadMe();
+fetchMyBots();
+</script>
+</body>
+</html>
