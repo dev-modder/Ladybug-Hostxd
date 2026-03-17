@@ -9,15 +9,15 @@ services:
       - key: NODE_ENV
         value: production
       - key: RENDER_URL
-        sync: false
+        sync: true
       - key: ADMIN_USERNAME
-        sync: false
+        sync: true
       - key: ADMIN_PASSWORD
-        sync: false
+        sync: true
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI
-        sync: false
+        sync: true
     disk:
       name: ladybugnodes-data
       mountPath: /opt/render/project/data
