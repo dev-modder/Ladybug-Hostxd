@@ -1,30 +1,29 @@
-# LADYBUGNODES V5 Upgrade Plan
+# LADYBUGNODES V(5) Update Tasks
 
-## Phase 1: Core Updates
-- [x] Update package.json version to 5.0.0 with new dependencies
-- [x] Create public directory structure for HTML files
-- [x] Update README.md with V5 features documentation
+## Analysis & Planning
+- [x] Review existing project structure
+- [x] Understand current version (2.1.0)
+- [x] Check Render.yaml configuration
 
-## Phase 2: Server Enhancements (server.js)
-- [x] Add rate limiting middleware for API protection
-- [x] Add API key authentication system for external integrations
-- [x] Add bot templates system for quick bot deployment
-- [x] Add activity logs and audit trail
-- [x] Add two-factor authentication (2FA) support
-- [x] Add database backup/restore functionality
-- [x] Add settings management system
-- [x] Add enhanced security features (helmet, cors, xss sanitization)
+## Version Update Tasks
+- [x] Update package.json version to 5.0.0
+- [x] Update all HTML files with V(5) branding
+- [x] Update server.js with V(5) references
+- [x] Update README.md with V(5) documentation
 
-## Phase 3: UI/UX Improvements
-- [x] Create modernized login.html with 2FA support
-- [x] Update index.html with navigation to new pages
-- [x] Update panel-bots.html with navigation
-- [x] Create settings.html for user settings
-- [x] Create activity-logs.html for audit trail viewing
+## Render.com Deployment Fixes
+- [x] Fix static file serving (move HTML files to public folder)
+- [x] Update render.yaml with proper configuration
+- [x] Add health check endpoint improvements
+- [x] Ensure proper environment variable handling
+- [x] Add production-ready error handling
 
-## Phase 4: Testing & Finalization
-- [x] Run npm install to install new dependencies
-- [x] Initialize data files with defaults
-- [x] Final verification
+## Code Improvements for V(5)
+- [x] Add version endpoint to API
+- [x] Improve error handling throughout
+- [x] Add request logging middleware
+- [x] Ensure all routes work correctly on Render
 
-## ✅ V5 UPGRADE COMPLETE!
+## Final Verification
+- [x] Test server startup locally
+- [x] Verify all files are in correct locations

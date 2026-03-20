@@ -2,11 +2,18 @@ services:
   - type: web
     name: ladybugnodes
     runtime: node
-    plan: free
     buildCommand: npm install
     startCommand: node server.js
+    plan: free
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: RENDER_URL
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: JWT_SECRET
         generateValue: true
