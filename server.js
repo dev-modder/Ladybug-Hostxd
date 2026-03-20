@@ -284,7 +284,11 @@ const authLimiter = rateLimit({
 const speedLimiter = slowDown({
   windowMs: 15 * 60 * 1000,
   delayAfter: 50,
-  delayMs: 500
+  delayMs: (used, req) => {
+    const delayAfter = req.slowDown.limit;
+    return (used - delayAfter) * 500;
+  },
+  validate: { delayMs: false }
 });
 app.use('/api/', speedLimiter);
 
