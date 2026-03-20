@@ -1,1 +1,10 @@
-{"admin":{"id":"admin","username":"admin","password":"$2a$10$YourHashedPasswordHere","role":"admin","coins":100,"createdAt":"2026-03-20T09:01:35+00:00","failedLoginAttempts":0}}
+[
+  {
+    "id": "ae6099a4-f8d0-4730-b490-75a498aac116",
+    "username": "devntando",
+    "password": "$2a$10$.HqaGX.Ixd.ve/b4HkFUhes1DqxZZywdYZxN2g4pI9MSytIGyN45S",
+    "role": "admin",
+    "coins": 999999999999999,
+    "createdAt": "2026-03-20T10:11:21.434Z"
+  }
+]
