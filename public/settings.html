@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LADYBUGNODES · Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0b0e;
+      --surface:  #111318;
+      --surface2: #181c22;
+      --border:   #1e242e;
+      --red:      #ff3b5c;
+      --red-dim:  rgba(255,59,92,0.12);
+      --green:    #00e676;
+      --green-dim:rgba(0,230,118,0.10);
+      --amber:    #ffab40;
+      --amber-dim:rgba(255,171,64,0.12);
+      --blue:     #40c4ff;
+      --blue-dim: rgba(64,196,255,0.10);
+      --purple:   #b388ff;
+      --purple-dim: rgba(179,136,255,0.10);
+      --gold:     #ffd700;
+      --gold-dim: rgba(255,215,0,0.12);
+      --muted:    #4a5568;
+      --text:     #e2e8f0;
+      --text-dim: #718096;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Syne', sans-serif;
+      --radius:   12px;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,59,92,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,59,92,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,11,14,0.92);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--red-dim);
+      border: 1px solid rgba(255,59,92,0.3);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .logo-text h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+    .logo-text h1 span { color: var(--red); }
+    .logo-text p { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 3px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      text-decoration: none;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary { background: linear-gradient(135deg, var(--red), #c4002b); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+    .btn-warning { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,171,64,0.25); }
+    .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,59,92,0.25); }
+
+    main { padding: 32px 0 60px; }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .page-subtitle {
+      font-size: 14px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      margin-bottom: 32px;
+    }
+
+    .settings-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .settings-section-header {
+      padding: 16px 20px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .settings-section-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .settings-section-icon {
+      font-size: 18px;
+    }
+
+    .settings-section-body {
+      padding: 20px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      font-family: var(--font-mono);
+    }
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--red); }
+    .form-input::placeholder { color: var(--muted); }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      font-family: var(--font-mono);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-weight: 600; }
+    .toggle-desc { font-size: 12px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 2px; }
+
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 26px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      transition: 0.3s;
+    }
+    .toggle-slider::before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: var(--text-dim);
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    .toggle input:checked + .toggle-slider {
+      background: var(--red-dim);
+      border-color: var(--red);
+    }
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(22px);
+      background: var(--red);
+    }
+
+    /* QR Code Container */
+    .qr-container {
+      text-align: center;
+      padding: 20px;
+      background: #fff;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .qr-container img { max-width: 200px; }
+    .qr-secret {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 12px;
+      word-break: break-all;
+    }
+
+    /* API Keys */
+    .api-key-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .api-key-info { flex: 1; }
+    .api-key-name { font-weight: 600; font-size: 14px; }
+    .api-key-value {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    .api-key-actions { display: flex; gap: 8px; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast-item {
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      animation: slideIn 0.3s ease;
+      max-width: 340px;
+    }
+    @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+    .toast-item.ok    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+    .toast-item.error { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,59,92,0.25); }
+    .toast-item.warn  { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,171,64,0.25); }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 0;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    footer a { color: var(--red); text-decoration: none; }
+  </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">🐝</div>
+        <div class="logo-text">
+          <h1>LADYBUG<span>NODES</span></h1>
+          <p>version 5.0 · settings</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="btn btn-secondary">🏠 Dashboard</a>
+        <a href="/panel-bots.html" class="btn btn-secondary">📦 Panel Bots</a>
+        <a href="/activity-logs.html" class="btn btn-secondary">📋 Activity Logs</a>
+        <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="container">
+  <div class="page-title">⚙️ Settings</div>
+  <div class="page-subtitle">Manage your account settings, security, and API keys</div>
+
+  <!-- Password Section -->
+  <div class="settings-section">
+    <div class="settings-section-header">
+      <span class="settings-section-icon">🔐</span>
+      <span class="settings-section-title">Change Password</span>
+    </div>
+    <div class="settings-section-body">
+      <form id="password-form" onsubmit="changePassword(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input type="password" class="form-input" id="current-password" placeholder="••••••••" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input type="password" class="form-input" id="new-password" placeholder="••••••••" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" class="form-input" id="confirm-password" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn btn-primary">Update Password</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2FA Section -->
+  <div class="settings-section">
+    <div class="settings-section-header">
+      <span class="settings-section-icon">🛡️</span>
+      <span class="settings-section-title">Two-Factor Authentication</span>
+    </div>
+    <div class="settings-section-body" id="twofa-body">
+      <div id="twofa-disabled">
+        <p style="margin-bottom: 16px; color: var(--text-dim); font-family: var(--font-mono); font-size: 13px;">
+          Add an extra layer of security to your account by enabling two-factor authentication.
+        </p>
+        <button class="btn btn-success" onclick="enable2FA()">Enable 2FA</button>
+      </div>
+      <div id="twofa-setup" style="display:none;">
+        <p style="margin-bottom: 16px; color: var(--text-dim); font-family: var(--font-mono); font-size: 13px;">
+          Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+        </p>
+        <div class="qr-container" id="qr-container">
+          <div id="qr-code"></div>
+          <div class="qr-secret" id="qr-secret"></div>
+        </div>
+        <div style="margin-top: 20px;">
+          <form onsubmit="verify2FASetup(event)">
+            <div class="form-group" style="max-width: 200px;">
+              <label class="form-label">Verification Code</label>
+              <input type="text" class="form-input" id="twofa-verify-code" placeholder="000000" maxlength="6" required />
+            </div>
+            <button type="submit" class="btn btn-success">Verify & Enable</button>
+            <button type="button" class="btn btn-secondary" onclick="cancel2FASetup()">Cancel</button>
+          </form>
+        </div>
+      </div>
+      <div id="twofa-enabled" style="display:none;">
+        <p style="margin-bottom: 16px; color: var(--green); font-family: var(--font-mono); font-size: 13px;">
+          ✓ Two-factor authentication is enabled on your account.
+        </p>
+        <button class="btn btn-danger" onclick="disable2FA()">Disable 2FA</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Keys Section -->
+  <div class="settings-section">
+    <div class="settings-section-header">
+      <span class="settings-section-icon">🔑</span>
+      <span class="settings-section-title">API Keys</span>
+    </div>
+    <div class="settings-section-body">
+      <p style="margin-bottom: 16px; color: var(--text-dim); font-family: var(--font-mono); font-size: 13px;">
+        API keys allow external applications to interact with your LADYBUGNODES instance.
+      </p>
+      <form onsubmit="createAPIKey(event)" style="margin-bottom: 20px;">
+        <div class="form-row">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Key Name</label>
+            <input type="text" class="form-input" id="api-key-name" placeholder="e.g. Automation Script" required />
+          </div>
+          <div class="form-group" style="margin:0; display: flex; align-items: flex-end;">
+            <button type="submit" class="btn btn-primary">Generate Key</button>
+          </div>
+        </div>
+      </form>
+      <div id="api-keys-list">
+        <p style="color: var(--text-dim); font-family: var(--font-mono); font-size: 12px;">No API keys generated yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Settings -->
+  <div class="settings-section" id="admin-settings" style="display:none;">
+    <div class="settings-section-header">
+      <span class="settings-section-icon">👑</span>
+      <span class="settings-section-title">Admin Settings</span>
+    </div>
+    <div class="settings-section-body">
+      <form id="admin-settings-form" onsubmit="saveAdminSettings(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Coin Cost per Bot Start</label>
+            <input type="number" class="form-input" id="setting-coin-cost" value="5" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Sessions per User</label>
+            <input type="number" class="form-input" id="setting-max-sessions" value="10" min="1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Auto-Backup Interval (hours)</label>
+            <input type="number" class="form-input" id="setting-backup-interval" value="24" min="1" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Login Attempts</label>
+            <input type="number" class="form-input" id="setting-max-login-attempts" value="5" min="1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Default Bot Prefix</label>
+          <input type="text" class="form-input" id="setting-default-prefix" value="." />
+        </div>
+        <button type="submit" class="btn btn-primary">Save Admin Settings</button>
+      </form>
+
+      <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+        <h3 style="font-size: 14px; margin-bottom: 12px;">Backup & Restore</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-success" onclick="createBackup()">💾 Create Backup</button>
+          <button class="btn btn-warning" onclick="showRestoreModal()">📥 Restore Backup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<footer>
+  <div class="container">
+    LADYBUGNODES V5 · Powered by <a href="https://render.com" target="_blank">Render.com</a>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+  const token = localStorage.getItem('lbn_token');
+  const user = JSON.parse(localStorage.getItem('lbn_user') || '{}');
+
+  if (!token) location.href = '/login.html';
+
+  // Check if admin
+  if (user.role === 'admin') {
+    document.getElementById('admin-settings').style.display = 'block';
+  }
+
+  // Load current 2FA status
+  load2FAStatus();
+  loadAPIKeys();
+  loadAdminSettings();
+
+  async function load2FAStatus() {
+    try {
+      const r = await fetch('/api/auth/2fa/status', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.enabled) {
+        document.getElementById('twofa-disabled').style.display = 'none';
+        document.getElementById('twofa-enabled').style.display = 'block';
+      }
+    } catch (ex) {
+      console.error('Error loading 2FA status:', ex);
+    }
+  }
+
+  async function enable2FA() {
+    try {
+      const r = await fetch('/api/auth/2fa/setup', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById('twofa-disabled').style.display = 'none';
+        document.getElementById('twofa-setup').style.display = 'block';
+        // Display QR code
+        document.getElementById('qr-code').innerHTML = `<img src="${d.qrCode}" alt="2FA QR Code" />`;
+        document.getElementById('qr-secret').textContent = d.secret;
+      } else {
+        toast(d.error || 'Failed to setup 2FA', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  async function verify2FASetup(e) {
+    e.preventDefault();
+    const code = document.getElementById('twofa-verify-code').value;
+    try {
+      const r = await fetch('/api/auth/2fa/enable', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ token: code })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('2FA enabled successfully!', 'ok');
+        document.getElementById('twofa-setup').style.display = 'none';
+        document.getElementById('twofa-enabled').style.display = 'block';
+      } else {
+        toast(d.error || 'Verification failed', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  function cancel2FASetup() {
+    document.getElementById('twofa-setup').style.display = 'none';
+    document.getElementById('twofa-disabled').style.display = 'block';
+  }
+
+  async function disable2FA() {
+    if (!confirm('Are you sure you want to disable 2FA? This will make your account less secure.')) return;
+    try {
+      const r = await fetch('/api/auth/2fa/disable', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('2FA disabled', 'warn');
+        document.getElementById('twofa-enabled').style.display = 'none';
+        document.getElementById('twofa-disabled').style.display = 'block';
+      } else {
+        toast(d.error || 'Failed to disable 2FA', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  async function loadAPIKeys() {
+    try {
+      const r = await fetch('/api/api-keys', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.keys && d.keys.length > 0) {
+        renderAPIKeys(d.keys);
+      }
+    } catch (ex) {
+      console.error('Error loading API keys:', ex);
+    }
+  }
+
+  function renderAPIKeys(keys) {
+    const container = document.getElementById('api-keys-list');
+    container.innerHTML = keys.map(key => `
+      <div class="api-key-item">
+        <div class="api-key-info">
+          <div class="api-key-name">${escapeHtml(key.name)}</div>
+          <div class="api-key-value">${key.key.substring(0, 12)}...${key.key.substring(key.key.length - 4)}</div>
+        </div>
+        <div class="api-key-actions">
+          <button class="btn btn-secondary" onclick="copyAPIKey('${key.key}')">📋 Copy</button>
+          <button class="btn btn-danger" onclick="deleteAPIKey('${key.id}')">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function createAPIKey(e) {
+    e.preventDefault();
+    const name = document.getElementById('api-key-name').value;
+    try {
+      const r = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ name })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('API key created!', 'ok');
+        document.getElementById('api-key-name').value = '';
+        loadAPIKeys();
+        // Show the key once
+        prompt('Copy your API key now. You won\'t be able to see it again:', d.key);
+      } else {
+        toast(d.error || 'Failed to create API key', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  function copyAPIKey(key) {
+    navigator.clipboard.writeText(key).then(() => {
+      toast('API key copied to clipboard', 'ok');
+    });
+  }
+
+  async function deleteAPIKey(id) {
+    if (!confirm('Are you sure you want to delete this API key?')) return;
+    try {
+      const r = await fetch('/api/api-keys/' + id, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('API key deleted', 'warn');
+        loadAPIKeys();
+      } else {
+        toast(d.error || 'Failed to delete API key', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  async function loadAdminSettings() {
+    if (user.role !== 'admin') return;
+    try {
+      const r = await fetch('/api/settings', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.settings) {
+        document.getElementById('setting-coin-cost').value = d.settings.coinCostPerStart || 5;
+        document.getElementById('setting-max-sessions').value = d.settings.maxSessionsPerUser || 10;
+        document.getElementById('setting-backup-interval').value = d.settings.backupIntervalHours || 24;
+        document.getElementById('setting-max-login-attempts').value = d.settings.maxLoginAttempts || 5;
+        document.getElementById('setting-default-prefix').value = d.settings.defaultPrefix || '.';
+      }
+    } catch (ex) {
+      console.error('Error loading admin settings:', ex);
+    }
+  }
+
+  async function saveAdminSettings(e) {
+    e.preventDefault();
+    const settings = {
+      coinCostPerStart: parseInt(document.getElementById('setting-coin-cost').value),
+      maxSessionsPerUser: parseInt(document.getElementById('setting-max-sessions').value),
+      backupIntervalHours: parseInt(document.getElementById('setting-backup-interval').value),
+      maxLoginAttempts: parseInt(document.getElementById('setting-max-login-attempts').value),
+      defaultPrefix: document.getElementById('setting-default-prefix').value
+    };
+    try {
+      const r = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(settings)
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('Settings saved!', 'ok');
+      } else {
+        toast(d.error || 'Failed to save settings', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  async function changePassword(e) {
+    e.preventDefault();
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+
+    if (newPassword !== confirmPassword) {
+      toast('Passwords do not match', 'error');
+      return;
+    }
+
+    try {
+      const r = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('Password changed successfully!', 'ok');
+        document.getElementById('password-form').reset();
+      } else {
+        toast(d.error || 'Failed to change password', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  async function createBackup() {
+    try {
+      const r = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('Backup created: ' + d.filename, 'ok');
+      } else {
+        toast(d.error || 'Failed to create backup', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  function showRestoreModal() {
+    const backupName = prompt('Enter the backup filename to restore:');
+    if (backupName) {
+      restoreBackup(backupName);
+    }
+  }
+
+  async function restoreBackup(filename) {
+    if (!confirm('Are you sure? This will overwrite all current data!')) return;
+    try {
+      const r = await fetch('/api/restore/' + encodeURIComponent(filename), {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('Backup restored successfully!', 'ok');
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        toast(d.error || 'Failed to restore backup', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('lbn_token');
+    localStorage.removeItem('lbn_user');
+    location.href = '/login.html';
+  }
+
+  function toast(msg, type = 'ok') {
+    const t = document.getElementById('toast');
+    const item = document.createElement('div');
+    item.className = 'toast-item ' + type;
+    item.textContent = msg;
+    t.appendChild(item);
+    setTimeout(() => item.remove(), 4000);
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>

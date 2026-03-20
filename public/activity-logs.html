@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LADYBUGNODES · Activity Logs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0b0e;
+      --surface:  #111318;
+      --surface2: #181c22;
+      --border:   #1e242e;
+      --red:      #ff3b5c;
+      --red-dim:  rgba(255,59,92,0.12);
+      --green:    #00e676;
+      --green-dim:rgba(0,230,118,0.10);
+      --amber:    #ffab40;
+      --amber-dim:rgba(255,171,64,0.12);
+      --blue:     #40c4ff;
+      --blue-dim: rgba(64,196,255,0.10);
+      --purple:   #b388ff;
+      --purple-dim: rgba(179,136,255,0.10);
+      --gold:     #ffd700;
+      --gold-dim: rgba(255,215,0,0.12);
+      --muted:    #4a5568;
+      --text:     #e2e8f0;
+      --text-dim: #718096;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Syne', sans-serif;
+      --radius:   12px;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,59,92,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,59,92,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,11,14,0.92);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--red-dim);
+      border: 1px solid rgba(255,59,92,0.3);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .logo-text h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+    .logo-text h1 span { color: var(--red); }
+    .logo-text p { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 3px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      text-decoration: none;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-secondary { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,59,92,0.25); }
+
+    main { padding: 32px 0 60px; }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .page-subtitle {
+      font-size: 14px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      margin-bottom: 24px;
+    }
+
+    /* Filters */
+    .filters-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-select {
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    .filter-input {
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      outline: none;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    /* Logs Table */
+    .logs-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .logs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .logs-table th {
+      text-align: left;
+      padding: 14px 16px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-weight: 700;
+    }
+    .logs-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(30,36,46,0.5);
+      vertical-align: middle;
+    }
+    .logs-table tr:last-child td { border-bottom: none; }
+    .logs-table tr:hover td { background: var(--surface2); }
+
+    .log-type {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .log-type.login      { background: var(--green-dim); color: var(--green); }
+    .log-type.logout     { background: var(--amber-dim); color: var(--amber); }
+    .log-type.bot_start  { background: var(--blue-dim); color: var(--blue); }
+    .log-type.bot_stop   { background: var(--red-dim); color: var(--red); }
+    .log-type.session    { background: var(--purple-dim); color: var(--purple); }
+    .log-type.user       { background: var(--gold-dim); color: var(--gold); }
+    .log-type.settings   { background: var(--surface2); color: var(--text-dim); }
+    .log-type.backup     { background: var(--blue-dim); color: var(--blue); }
+    .log-type.error      { background: var(--red-dim); color: var(--red); }
+
+    .log-timestamp {
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .log-user {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .log-action {
+      color: var(--text);
+    }
+    .log-details {
+      color: var(--text-dim);
+      font-size: 11px;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .log-ip {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .empty-state-desc  { font-size: 13px; color: var(--text-dim); font-family: var(--font-mono); }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px;
+      border-top: 1px solid var(--border);
+    }
+    .pagination-btn {
+      padding: 8px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .pagination-btn:hover { border-color: var(--red); color: var(--red); }
+    .pagination-btn.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+    .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Stats Cards */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .stat-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 999;
+    }
+    .toast-item {
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      animation: slideIn 0.3s ease;
+      max-width: 340px;
+      margin-top: 8px;
+    }
+    @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+    .toast-item.ok    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+    .toast-item.error { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,59,92,0.25); }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 0;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    footer a { color: var(--red); text-decoration: none; }
+  </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">🐝</div>
+        <div class="logo-text">
+          <h1>LADYBUG<span>NODES</span></h1>
+          <p>version 5.0 · activity logs</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="btn btn-secondary">🏠 Dashboard</a>
+        <a href="/panel-bots.html" class="btn btn-secondary">📦 Panel Bots</a>
+        <a href="/settings.html" class="btn btn-secondary">⚙️ Settings</a>
+        <button class="btn btn-secondary" onclick="logout()">🚪 Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="container">
+  <div class="page-title">📋 Activity Logs</div>
+  <div class="page-subtitle">View all account activity and audit trail</div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value" id="stat-total" style="color: var(--blue)">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Logins Today</div>
+      <div class="stat-value" id="stat-logins" style="color: var(--green)">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Bot Actions</div>
+      <div class="stat-value" id="stat-bots" style="color: var(--purple)">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Errors</div>
+      <div class="stat-value" id="stat-errors" style="color: var(--red)">—</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <select class="filter-select" id="filter-type" onchange="loadLogs()">
+      <option value="">All Types</option>
+      <option value="login">Login</option>
+      <option value="logout">Logout</option>
+      <option value="bot_start">Bot Start</option>
+      <option value="bot_stop">Bot Stop</option>
+      <option value="session">Session</option>
+      <option value="user">User</option>
+      <option value="settings">Settings</option>
+      <option value="backup">Backup</option>
+      <option value="error">Error</option>
+    </select>
+    <input type="text" class="filter-input" id="filter-search" placeholder="Search by user or action..." oninput="loadLogs()" />
+    <button class="btn btn-secondary" onclick="exportLogs()">📥 Export CSV</button>
+    <button class="btn btn-danger" id="clear-logs-btn" onclick="clearOldLogs()" style="display:none;">🗑️ Clear Old Logs</button>
+  </div>
+
+  <!-- Logs Table -->
+  <div class="logs-container">
+    <table class="logs-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Type</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Details</th>
+          <th>IP Address</th>
+        </tr>
+      </thead>
+      <tbody id="logs-tbody">
+        <tr>
+          <td colspan="6">
+            <div class="empty-state">
+              <div class="empty-state-icon">📋</div>
+              <div class="empty-state-title">Loading logs...</div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+</div>
+</main>
+
+<footer>
+  <div class="container">
+    LADYBUGNODES V5 · Powered by <a href="https://render.com" target="_blank">Render.com</a>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+  const token = localStorage.getItem('lbn_token');
+  const user = JSON.parse(localStorage.getItem('lbn_user') || '{}');
+
+  if (!token) location.href = '/login.html';
+
+  let currentPage = 1;
+  const pageSize = 50;
+
+  // Check if admin
+  if (user.role === 'admin') {
+    document.getElementById('clear-logs-btn').style.display = 'inline-flex';
+  }
+
+  loadLogs();
+  loadStats();
+
+  async function loadLogs() {
+    const type = document.getElementById('filter-type').value;
+    const search = document.getElementById('filter-search').value;
+
+    let url = `/api/activity-log?page=${currentPage}&limit=${pageSize}`;
+    if (type) url += `&type=${type}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    try {
+      const r = await fetch(url, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.logs) {
+        renderLogs(d.logs);
+        renderPagination(d.total, d.page, d.totalPages);
+      } else {
+        renderEmpty();
+      }
+    } catch (ex) {
+      console.error('Error loading logs:', ex);
+      renderEmpty();
+      toast('Failed to load logs', 'error');
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const r = await fetch('/api/activity-log?limit=1000', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.logs) {
+        const logs = d.logs;
+        const today = new Date().toDateString();
+        const loginsToday = logs.filter(l => l.type === 'login' && new Date(l.timestamp).toDateString() === today).length;
+        const botActions = logs.filter(l => l.type.startsWith('bot_')).length;
+        const errors = logs.filter(l => l.type === 'error').length;
+
+        document.getElementById('stat-total').textContent = logs.length;
+        document.getElementById('stat-logins').textContent = loginsToday;
+        document.getElementById('stat-bots').textContent = botActions;
+        document.getElementById('stat-errors').textContent = errors;
+      }
+    } catch (ex) {
+      console.error('Error loading stats:', ex);
+    }
+  }
+
+  function renderLogs(logs) {
+    const tbody = document.getElementById('logs-tbody');
+    if (logs.length === 0) {
+      renderEmpty();
+      return;
+    }
+
+    tbody.innerHTML = logs.map(log => `
+      <tr>
+        <td class="log-timestamp">${formatDate(log.timestamp)}</td>
+        <td><span class="log-type ${log.type}">${formatType(log.type)}</span></td>
+        <td class="log-user">${escapeHtml(log.username || 'System')}</td>
+        <td class="log-action">${escapeHtml(log.action)}</td>
+        <td class="log-details" title="${escapeHtml(log.details || '')}">${escapeHtml(log.details || '—')}</td>
+        <td class="log-ip">${log.ipAddress || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderEmpty() {
+    document.getElementById('logs-tbody').innerHTML = `
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-title">No activity logs found</div>
+            <div class="empty-state-desc">Activity will appear here as actions are performed</div>
+          </div>
+        </td>
+      </tr>
+    `;
+    document.getElementById('pagination').innerHTML = '';
+  }
+
+  function renderPagination(total, page, totalPages) {
+    const pagination = document.getElementById('pagination');
+    if (totalPages <= 1) {
+      pagination.innerHTML = '';
+      return;
+    }
+
+    let html = '';
+    html += `<button class="pagination-btn" onclick="goToPage(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>`;
+
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPages, page + 2);
+
+    for (let i = start; i <= end; i++) {
+      html += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+
+    html += `<button class="pagination-btn" onclick="goToPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>Next →</button>`;
+
+    pagination.innerHTML = html;
+  }
+
+  function goToPage(page) {
+    currentPage = page;
+    loadLogs();
+    window.scrollTo(0, 0);
+  }
+
+  function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  function formatType(type) {
+    const types = {
+      'login': 'Login',
+      'logout': 'Logout',
+      'bot_start': 'Bot Start',
+      'bot_stop': 'Bot Stop',
+      'session': 'Session',
+      'user': 'User',
+      'settings': 'Settings',
+      'backup': 'Backup',
+      'error': 'Error'
+    };
+    return types[type] || type;
+  }
+
+  async function exportLogs() {
+    try {
+      const r = await fetch('/api/activity-log?limit=10000', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.logs) {
+        const csv = logsToCSV(d.logs);
+        downloadCSV(csv, 'activity-logs.csv');
+        toast('Logs exported successfully', 'ok');
+      }
+    } catch (ex) {
+      toast('Failed to export logs', 'error');
+    }
+  }
+
+  function logsToCSV(logs) {
+    const headers = ['Timestamp', 'Type', 'User', 'Action', 'Details', 'IP Address'];
+    const rows = logs.map(l => [
+      l.timestamp,
+      l.type,
+      l.username || 'System',
+      l.action,
+      (l.details || '').replace(/"/g, '""'),
+      l.ipAddress || ''
+    ]);
+    return [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  }
+
+  function downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function clearOldLogs() {
+    const days = prompt('Clear logs older than how many days?', '30');
+    if (!days) return;
+
+    try {
+      const r = await fetch('/api/activity-log/clear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ olderThanDays: parseInt(days) })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast(`Cleared ${d.deleted} old logs`, 'ok');
+        loadLogs();
+        loadStats();
+      } else {
+        toast(d.error || 'Failed to clear logs', 'error');
+      }
+    } catch (ex) {
+      toast('Network error: ' + ex.message, 'error');
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('lbn_token');
+    localStorage.removeItem('lbn_user');
+    location.href = '/login.html';
+  }
+
+  function toast(msg, type = 'ok') {
+    const t = document.getElementById('toast');
+    const item = document.createElement('div');
+    item.className = 'toast-item ' + type;
+    item.textContent = msg;
+    t.appendChild(item);
+    setTimeout(() => item.remove(), 4000);
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>
