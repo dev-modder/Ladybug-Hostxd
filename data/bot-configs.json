@@ -1,0 +1,22 @@
+[
+  {
+    "id": "bc54f85a-d365-4e9a-ae4e-b5116ac9c263",
+    "name": "Test Bot",
+    "description": "Test from GitHub",
+    "entryPoint": "index.js",
+    "ownerId": "4059e1dd-10ba-46f0-8e04-2e66dfd3e354",
+    "ownerUsername": "devntando",
+    "status": "stopped",
+    "source": "github",
+    "sourceUrl": "https://github.com/dev-modder/Ladybug-mini",
+    "branch": "master",
+    "autoRestart": true,
+    "envVars": {
+      "API_KEY": "test123",
+      "DEBUG": "true"
+    },
+    "createdAt": "2026-03-20T07:47:00.667Z",
+    "path": "/workspace/data/uploaded-bots/bc54f85a-d365-4e9a-ae4e-b5116ac9c263",
+    "updatedAt": "2026-03-20T07:50:02.729Z"
+  }
+]
