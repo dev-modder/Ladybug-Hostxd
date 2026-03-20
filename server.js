@@ -215,7 +215,317 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   const users = loadUsers();
   const user  = users.find(u => u.id === req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ id: user.id, username: user.username, role: user.role, coins: user.coins });
+  res.json({ 
+    id: user.id, 
+    username: user.username, 
+    role: user.role, 
+    coins: user.coins,
+    email: user.email || '',
+    phone: user.phone || '',
+    timezone: user.timezone || 'Africa/Harare',
+    settings: user.settings || {},
+    createdAt: user.createdAt
+  });
+});
+
+// WhatsApp OTP Verification Service
+const { 
+  sendVerificationOTP, 
+  sendPasswordResetOTP, 
+  send2FAOTP, 
+  sendBotNotification,
+  verifyOTP 
+} = require('./utils/whatsapp');
+
+// Send OTP for verification/signup
+app.post('/api/auth/send-otp', async (req, res) => {
+  const { phone, type } = req.body || {};
+  
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number is required' });
+  }
+  
+  try {
+    let result;
+    
+    switch (type) {
+      case 'verification':
+        result = await sendVerificationOTP(phone);
+        break;
+      case 'password-reset':
+        result = await sendPasswordResetOTP(phone);
+        break;
+      case '2fa':
+      case '2fa-enable':
+        result = await send2FAOTP(phone);
+        break;
+      default:
+        result = await sendVerificationOTP(phone);
+    }
+    
+    if (result.sent) {
+      log(`OTP sent to ${phone} via WhatsApp (${type || 'verification'})`, 'ok');
+      res.json({ 
+        ok: true, 
+        otp: process.env.NODE_ENV === 'development' ? result.otp : undefined 
+      });
+    } else {
+      res.status(500).json({ error: result.error || 'Failed to send OTP' });
+    }
+  } catch (err) {
+    log(`OTP send error: ${err.message}`, 'error');
+    res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+// Signup with WhatsApp verification
+app.post('/api/auth/signup', async (req, res) => {
+  const { username, email, phone, password, otp } = req.body || {};
+  
+  if (!username || !phone || !password || !otp) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  
+  // Verify OTP
+  const otpResult = verifyOTP(phone, otp, 'verification');
+  if (!otpResult.valid) {
+    return res.status(400).json({ error: otpResult.error });
+  }
+  
+  const users = loadUsers();
+  
+  // Check if username exists
+  if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+    return res.status(409).json({ error: 'Username already exists' });
+  }
+  
+  // Check if phone exists
+  if (users.find(u => u.phone === phone)) {
+    return res.status(409).json({ error: 'Phone number already registered' });
+  }
+  
+  // Create user
+  const hash = bcrypt.hashSync(password, 10);
+  const newUser = {
+    id: uuidv4(),
+    username,
+    email: email || '',
+    phone,
+    password: hash,
+    role: 'user',
+    coins: 50, // Starting coins
+    timezone: 'Africa/Harare',
+    settings: {
+      twoFactor: false,
+      loginNotify: true,
+      botStart: true,
+      botStop: true,
+      botCrash: true,
+      lowBalance: true
+    },
+    apiKeys: [],
+    createdAt: new Date().toISOString()
+  };
+  
+  users.push(newUser);
+  saveUsers(users);
+  
+  // Generate token
+  const token = jwt.sign(
+    { id: newUser.id, username: newUser.username, role: newUser.role },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  
+  log(`New user "${username}" registered via WhatsApp`, 'ok');
+  
+  // Send welcome notification
+  sendBotNotification(phone, 'session_created', { 
+    botName: 'Welcome!', 
+    ownerName: username 
+  }).catch(() => {});
+  
+  res.json({ 
+    ok: true, 
+    token,
+    user: { 
+      id: newUser.id, 
+      username: newUser.username, 
+      role: newUser.role, 
+      coins: newUser.coins,
+      phone: newUser.phone
+    } 
+  });
+});
+
+// Password reset request
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { phone } = req.body || {};
+  
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number is required' });
+  }
+  
+  const users = loadUsers();
+  const user = users.find(u => u.phone === phone);
+  
+  if (!user) {
+    // Don't reveal if user exists
+    return res.json({ ok: true, message: 'If the number exists, an OTP will be sent' });
+  }
+  
+  try {
+    const result = await sendPasswordResetOTP(phone);
+    
+    if (result.sent) {
+      log(`Password reset OTP sent to ${phone}`, 'ok');
+      res.json({ 
+        ok: true, 
+        otp: process.env.NODE_ENV === 'development' ? result.otp : undefined 
+      });
+    } else {
+      res.json({ ok: true }); // Don't reveal errors
+    }
+  } catch (err) {
+    res.json({ ok: true });
+  }
+});
+
+// Reset password with OTP
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { phone, otp, newPassword } = req.body || {};
+  
+  if (!phone || !otp || !newPassword) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  
+  // Verify OTP
+  const otpResult = verifyOTP(phone, otp, 'password-reset');
+  if (!otpResult.valid) {
+    return res.status(400).json({ error: otpResult.error });
+  }
+  
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.phone === phone);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  // Update password
+  users[userIndex].password = bcrypt.hashSync(newPassword, 10);
+  saveUsers(users);
+  
+  log(`Password reset for user "${users[userIndex].username}"`, 'ok');
+  
+  res.json({ ok: true, message: 'Password reset successfully' });
+});
+
+// Verify 2FA
+app.post('/api/auth/verify-2fa', requireAuth, async (req, res) => {
+  const { otp } = req.body || {};
+  
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.user.id);
+  
+  if (!user || !user.phone) {
+    return res.status(400).json({ error: 'User not found or no phone number' });
+  }
+  
+  const otpResult = verifyOTP(user.phone, otp, '2fa');
+  if (!otpResult.valid) {
+    return res.status(400).json({ error: otpResult.error });
+  }
+  
+  res.json({ ok: true });
+});
+
+// Verify OTP (for password reset flow - no auth required)
+app.post('/api/auth/verify-otp', (req, res) => {
+  const { phone, otp, type } = req.body || {};
+  
+  if (!phone || !otp) {
+    return res.status(400).json({ error: 'Phone and OTP are required' });
+  }
+  
+  const otpResult = verifyOTP(phone, otp, type || 'password-reset');
+  if (!otpResult.valid) {
+    return res.status(400).json({ error: otpResult.error });
+  }
+  
+  res.json({ ok: true, verified: true });
+});
+
+// Dashboard Statistics
+app.get('/api/dashboard/stats', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.user.id);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  // Load sessions
+  const sessions = loadSessions();
+  const userSessions = sessions.filter(s => s.ownerId === user.id || (user.role === 'admin' && s.ownerId === user.id));
+  
+  // Load bot configs
+  const botConfigs = loadBotConfigs();
+  const userBots = botConfigs.filter(b => b.ownerId === user.id || user.role === 'admin');
+  
+  // Calculate statistics
+  const runningBots = userBots.filter(b => state.panelBotProcesses[b.id]);
+  const runningSessions = userSessions.filter(s => state.botProcesses[s.id]);
+  
+  // Calculate total uptime
+  let totalUptime = 0;
+  const now = Date.now();
+  
+  runningSessions.forEach(s => {
+    if (state.botProcesses[s.id] && state.botProcesses[s.id].startTime) {
+      totalUptime += now - state.botProcesses[s.id].startTime;
+    }
+  });
+  
+  runningBots.forEach(b => {
+    if (state.panelBotProcesses[b.id] && state.panelBotProcesses[b.id].startTime) {
+      totalUptime += now - state.panelBotProcesses[b.id].startTime;
+    }
+  });
+  
+  // Days since account created
+  const accountAge = user.createdAt ? Math.floor((now - new Date(user.createdAt)) / (1000 * 60 * 60 * 24)) : 0;
+  
+  res.json({
+    coins: user.coins || 0,
+    totalBots: userBots.length,
+    runningBots: runningBots.length,
+    totalSessions: userSessions.length,
+    runningSessions: runningSessions.length,
+    totalUptime: Math.floor(totalUptime / 1000), // in seconds
+    accountAge,
+    role: user.role,
+    username: user.username
+  });
+});
+
+// Get recent activity for dashboard
+app.get('/api/dashboard/activity', requireAuth, (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  
+  const userActivities = activityLog
+    .filter(a => a.userId === req.user.id || req.user.role === 'admin')
+    .slice(0, limit);
+  
+  res.json({ activities: userActivities });
 });
 
 // ───────── Coin Routes ──────────────────────────────────────────────────────────────────────────
@@ -242,6 +552,236 @@ app.post('/api/coins/add', requireAdmin, (req, res) => {
   log(`Admin added ${amount} coins to "${user.username}" (total: ${user.coins})`, 'ok');
   broadcast({ type: 'coins-updated', userId: user.id, coins: user.coins });
   res.json({ ok: true, coins: user.coins });
+});
+
+// User Profile Routes
+app.get('/api/user/profile', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.user.id);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  res.json({
+    id: user.id,
+    username: user.username,
+    email: user.email || '',
+    phone: user.phone || '',
+    role: user.role,
+    coins: user.coins,
+    timezone: user.timezone || 'Africa/Harare',
+    settings: user.settings || {},
+    createdAt: user.createdAt
+  });
+});
+
+app.put('/api/user/profile', requireAuth, (req, res) => {
+  const { username, email, timezone } = req.body || {};
+  
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  // Check if username is taken by another user
+  if (username && username !== users[userIndex].username) {
+    if (users.find(u => u.id !== req.user.id && u.username.toLowerCase() === username.toLowerCase())) {
+      return res.status(409).json({ error: 'Username already taken' });
+    }
+    users[userIndex].username = username;
+  }
+  
+  if (email !== undefined) users[userIndex].email = email;
+  if (timezone !== undefined) users[userIndex].timezone = timezone;
+  
+  saveUsers(users);
+  
+  log(`User "${users[userIndex].username}" updated profile`, 'ok');
+  
+  res.json({ 
+    ok: true, 
+    user: {
+      id: users[userIndex].id,
+      username: users[userIndex].username,
+      email: users[userIndex].email,
+      timezone: users[userIndex].timezone
+    }
+  });
+});
+
+app.put('/api/user/settings', requireAuth, (req, res) => {
+  const { settings } = req.body || {};
+  
+  if (typeof settings !== 'object') {
+    return res.status(400).json({ error: 'Settings must be an object' });
+  }
+  
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  users[userIndex].settings = { ...users[userIndex].settings, ...settings };
+  saveUsers(users);
+  
+  res.json({ ok: true, settings: users[userIndex].settings });
+});
+
+app.put('/api/user/password', requireAuth, (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current and new password are required' });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+  
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.user.id);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (!bcrypt.compareSync(currentPassword, user.password)) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+  
+  user.password = bcrypt.hashSync(newPassword, 10);
+  saveUsers(users);
+  
+  log(`User "${user.username}" changed password`, 'ok');
+  
+  // Send notification
+  if (user.phone && user.settings?.loginNotify) {
+    sendBotNotification(user.phone, 'custom', { 
+      message: 'Your password was changed. If this wasn\'t you, secure your account immediately.' 
+    }).catch(() => {});
+  }
+  
+  res.json({ ok: true });
+});
+
+// API Key Management
+app.get('/api/user/api-keys', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.user.id);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const apiKeys = (user.apiKeys || []).map(k => ({
+    id: k.id,
+    name: k.name,
+    prefix: k.key.substring(0, 12) + '...',
+    createdAt: k.createdAt,
+    lastUsed: k.lastUsed
+  }));
+  
+  res.json({ apiKeys });
+});
+
+app.post('/api/user/api-keys', requireAuth, (req, res) => {
+  const { name } = req.body || {};
+  
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+  
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (!users[userIndex].apiKeys) {
+    users[userIndex].apiKeys = [];
+  }
+  
+  // Generate API key
+  const crypto = require('crypto');
+  const apiKey = 'lbn_' + crypto.randomBytes(32).toString('hex');
+  
+  const newKey = {
+    id: uuidv4(),
+    name,
+    key: apiKey,
+    createdAt: new Date().toISOString(),
+    lastUsed: null
+  };
+  
+  users[userIndex].apiKeys.push(newKey);
+  saveUsers(users);
+  
+  log(`API key "${name}" created for user "${users[userIndex].username}"`, 'ok');
+  
+  res.json({ 
+    ok: true, 
+    apiKey: {
+      id: newKey.id,
+      name: newKey.name,
+      key: apiKey, // Only shown once!
+      createdAt: newKey.createdAt
+    }
+  });
+});
+
+app.delete('/api/user/api-keys/:id', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const keyIndex = (users[userIndex].apiKeys || []).findIndex(k => k.id === req.params.id);
+  
+  if (keyIndex === -1) {
+    return res.status(404).json({ error: 'API key not found' });
+  }
+  
+  users[userIndex].apiKeys.splice(keyIndex, 1);
+  saveUsers(users);
+  
+  res.json({ ok: true });
+});
+
+// Activity Log
+const activityLog = [];
+
+function logActivity(userId, action, details = {}) {
+  activityLog.push({
+    id: uuidv4(),
+    userId,
+    action,
+    details,
+    ip: details.ip || 'unknown',
+    userAgent: details.userAgent || 'unknown',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Keep only last 1000 entries
+  if (activityLog.length > 1000) {
+    activityLog.shift();
+  }
+}
+
+app.get('/api/user/activity', requireAuth, (req, res) => {
+  const userActivities = activityLog
+    .filter(a => a.userId === req.user.id)
+    .slice(-50)
+    .reverse();
+  
+  res.json({ activities: userActivities });
 });
 
 // Admin: list users with coins
@@ -890,6 +1430,332 @@ wss.on('connection', (ws) => {
 });
 
 // ───────── Cron Jobs ──────────────────────────────────────────────────────────────────────────
+// Scheduled Bot Management
+const scheduledTasks = new Map();
+
+// Schedule bot start/stop
+app.post('/api/schedule', requireAuth, (req, res) => {
+  const { sessionId, action, cronExpression, enabled } = req.body || {};
+  
+  if (!sessionId || !action || !cronExpression) {
+    return res.status(400).json({ error: 'sessionId, action, and cronExpression are required' });
+  }
+  
+  if (!['start', 'stop'].includes(action)) {
+    return res.status(400).json({ error: 'Action must be "start" or "stop"' });
+  }
+  
+  // Validate cron expression
+  if (!cron.validate(cronExpression)) {
+    return res.status(400).json({ error: 'Invalid cron expression' });
+  }
+  
+  const sessions = loadSessions();
+  const session = sessions.find(s => s.id === sessionId);
+  
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  
+  if (req.user.role !== 'admin' && session.ownerId !== req.user.id) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  // Create scheduled task
+  const taskId = uuidv4();
+  const task = {
+    id: taskId,
+    sessionId,
+    sessionName: session.botName || session.ownerName,
+    action,
+    cronExpression,
+    enabled: enabled !== false,
+    ownerId: req.user.id,
+    createdAt: new Date().toISOString()
+  };
+  
+  // Schedule the task
+  const job = cron.schedule(cronExpression, () => {
+    log(`Scheduled ${action} for session "${session.botName}"`, 'info');
+    
+    if (action === 'start') {
+      startBotProcess(session);
+    } else {
+      stopBotProcess(sessionId);
+    }
+    
+    // Notify user
+    const users = loadUsers();
+    const user = users.find(u => u.id === session.ownerId);
+    if (user?.phone && user.settings?.botStart) {
+      sendBotNotification(user.phone, action === 'start' ? 'bot_started' : 'bot_stopped', {
+        botName: session.botName,
+        ownerName: session.ownerName
+      }).catch(() => {});
+    }
+  }, { scheduled: enabled !== false });
+  
+  scheduledTasks.set(taskId, { ...task, job });
+  
+  log(`Scheduled ${action} for session "${session.botName}" (${cronExpression})`, 'ok');
+  
+  res.json({ ok: true, task });
+});
+
+// List scheduled tasks
+app.get('/api/schedule', requireAuth, (req, res) => {
+  const tasks = Array.from(scheduledTasks.values())
+    .filter(t => req.user.role === 'admin' || t.ownerId === req.user.id)
+    .map(t => ({
+      id: t.id,
+      sessionId: t.sessionId,
+      sessionName: t.sessionName,
+      action: t.action,
+      cronExpression: t.cronExpression,
+      enabled: t.enabled,
+      createdAt: t.createdAt
+    }));
+  
+  res.json({ tasks });
+});
+
+// Delete scheduled task
+app.delete('/api/schedule/:id', requireAuth, (req, res) => {
+  const task = scheduledTasks.get(req.params.id);
+  
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+  
+  if (req.user.role !== 'admin' && task.ownerId !== req.user.id) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  task.job.stop();
+  scheduledTasks.delete(req.params.id);
+  
+  res.json({ ok: true });
+});
+
+// Webhook Management
+app.get('/api/webhooks', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.user.id);
+  
+  res.json({ webhooks: user?.webhooks || [] });
+});
+
+app.post('/api/webhooks', requireAuth, async (req, res) => {
+  const { url, events, secret } = req.body || {};
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+  
+  // Validate URL
+  try {
+    new URL(url);
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+  
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (!users[userIndex].webhooks) {
+    users[userIndex].webhooks = [];
+  }
+  
+  const webhook = {
+    id: uuidv4(),
+    url,
+    events: events || ['bot_start', 'bot_stop', 'bot_crash'],
+    secret: secret || '',
+    createdAt: new Date().toISOString()
+  };
+  
+  users[userIndex].webhooks.push(webhook);
+  saveUsers(users);
+  
+  res.json({ ok: true, webhook });
+});
+
+app.delete('/api/webhooks/:id', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const webhookIndex = (users[userIndex].webhooks || []).findIndex(w => w.id === req.params.id);
+  
+  if (webhookIndex === -1) {
+    return res.status(404).json({ error: 'Webhook not found' });
+  }
+  
+  users[userIndex].webhooks.splice(webhookIndex, 1);
+  saveUsers(users);
+  
+  res.json({ ok: true });
+});
+
+// Trigger webhooks
+async function triggerWebhooks(userId, event, data) {
+  const users = loadUsers();
+  const user = users.find(u => u.id === userId);
+  
+  if (!user?.webhooks?.length) return;
+  
+  const relevantWebhooks = user.webhooks.filter(w => w.events.includes(event));
+  
+  for (const webhook of relevantWebhooks) {
+    try {
+      await fetch(webhook.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Ladybug-Signature': webhook.secret ? 
+            require('crypto').createHmac('sha256', webhook.secret).update(JSON.stringify(data)).digest('hex') : ''
+        },
+        body: JSON.stringify({
+          event,
+          timestamp: new Date().toISOString(),
+          data
+        })
+      });
+    } catch (err) {
+      log(`Webhook failed: ${err.message}`, 'warn');
+    }
+  }
+}
+
+// Session Templates
+app.get('/api/templates', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const user = users.find(u => u.id === req.user.id);
+  
+  res.json({ templates: user?.templates || [] });
+});
+
+app.post('/api/templates', requireAuth, (req, res) => {
+  const { name, config } = req.body || {};
+  
+  if (!name || !config) {
+    return res.status(400).json({ error: 'Name and config are required' });
+  }
+  
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  if (!users[userIndex].templates) {
+    users[userIndex].templates = [];
+  }
+  
+  const template = {
+    id: uuidv4(),
+    name,
+    config,
+    createdAt: new Date().toISOString()
+  };
+  
+  users[userIndex].templates.push(template);
+  saveUsers(users);
+  
+  res.json({ ok: true, template });
+});
+
+app.delete('/api/templates/:id', requireAuth, (req, res) => {
+  const users = loadUsers();
+  const userIndex = users.findIndex(u => u.id === req.user.id);
+  
+  if (userIndex === -1) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const templateIndex = (users[userIndex].templates || []).findIndex(t => t.id === req.params.id);
+  
+  if (templateIndex === -1) {
+    return res.status(404).json({ error: 'Template not found' });
+  }
+  
+  users[userIndex].templates.splice(templateIndex, 1);
+  saveUsers(users);
+  
+  res.json({ ok: true });
+});
+
+// Backup & Restore Sessions
+app.get('/api/backup', requireAuth, (req, res) => {
+  const sessions = loadSessions();
+  const userSessions = req.user.role === 'admin' 
+    ? sessions 
+    : sessions.filter(s => s.ownerId === req.user.id);
+  
+  const backup = {
+    version: VERSION,
+    exportedAt: new Date().toISOString(),
+    exportedBy: req.user.username,
+    sessions: userSessions.map(s => ({
+      ownerName: s.ownerName,
+      ownerNumber: s.ownerNumber,
+      sessionIdString: s.sessionIdString,
+      botName: s.botName,
+      prefix: s.prefix,
+      timezone: s.timezone,
+      botId: s.botId
+    }))
+  };
+  
+  res.json(backup);
+});
+
+app.post('/api/restore', requireAuth, (req, res) => {
+  const { sessions: sessionsToRestore } = req.body || {};
+  
+  if (!Array.isArray(sessionsToRestore)) {
+    return res.status(400).json({ error: 'Sessions array is required' });
+  }
+  
+  const sessions = loadSessions();
+  let imported = 0;
+  
+  for (const sess of sessionsToRestore) {
+    if (!sess.ownerName || !sess.sessionIdString) continue;
+    
+    const newSession = {
+      id: uuidv4(),
+      ownerId: req.user.id,
+      ownerName: sess.ownerName,
+      ownerNumber: sess.ownerNumber || '',
+      sessionIdString: sess.sessionIdString,
+      botName: sess.botName || 'LadybugBot',
+      prefix: sess.prefix || '.',
+      timezone: sess.timezone || 'Africa/Harare',
+      botId: sess.botId || null,
+      status: 'stopped',
+      createdAt: new Date().toISOString()
+    };
+    
+    sessions.push(newSession);
+    imported++;
+  }
+  
+  saveSessions(sessions);
+  
+  log(`Restored ${imported} sessions for user "${req.user.username}"`, 'ok');
+  
+  res.json({ ok: true, imported });
+});
+
 // Cleanup every 6 hours
 cron.schedule('0 */6 * * *', runCleanup);
 
@@ -1326,7 +2192,326 @@ app.get('/api/panel-bots/:botId/stats', requireAuth, (req, res) => {
   res.json(stats);
 });
 
-// ───────── Start ───────────────────────────────────────────────────────────────────────────────
+// Backup bot configuration and files
+app.get('/api/panel-bots/:botId/backup', requireAuth, async (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  
+  if (!fs.existsSync(botDir)) {
+    return res.status(404).json({ error: 'Bot directory not found' });
+  }
+  
+  try {
+    const backupId = uuidv4();
+    const backupDir = path.join(DATA_DIR, 'backups');
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    
+    const backupPath = path.join(backupDir, `${config.id}-${backupId}.zip`);
+    
+    // Create zip archive
+    const zip = new AdmZip();
+    zip.addLocalFolder(botDir);
+    
+    // Add config metadata
+    const metadata = {
+      ...config,
+      backupId,
+      backedUpAt: new Date().toISOString(),
+      backedUpBy: req.user.username
+    };
+    zip.addFile('ladybug-backup.json', Buffer.from(JSON.stringify(metadata, null, 2)));
+    
+    zip.writeZip(backupPath);
+    
+    log(`Backup created for bot "${config.name}" by ${req.user.username}`, 'ok');
+    
+    res.json({
+      ok: true,
+      backupId,
+      downloadUrl: `/api/panel-bots/${config.id}/backup/${backupId}`
+    });
+  } catch (err) {
+    log(`Backup failed for bot "${config.name}": ${err.message}`, 'error');
+    res.status(500).json({ error: 'Failed to create backup: ' + err.message });
+  }
+});
+
+// Download backup file
+app.get('/api/panel-bots/:botId/backup/:backupId', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  
+  const backupPath = path.join(DATA_DIR, 'backups', `${req.params.botId}-${req.params.backupId}.zip`);
+  
+  if (!fs.existsSync(backupPath)) {
+    return res.status(404).json({ error: 'Backup not found' });
+  }
+  
+  res.download(backupPath, `${config.name}-backup-${req.params.backupId}.zip`);
+});
+
+// List backups for a bot
+app.get('/api/panel-bots/:botId/backups', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  
+  const backupDir = path.join(DATA_DIR, 'backups');
+  if (!fs.existsSync(backupDir)) {
+    return res.json({ backups: [] });
+  }
+  
+  const backups = fs.readdirSync(backupDir)
+    .filter(f => f.startsWith(req.params.botId))
+    .map(f => {
+      const stats = fs.statSync(path.join(backupDir, f));
+      const backupId = f.replace(`${req.params.botId}-`, '').replace('.zip', '');
+      return {
+        backupId,
+        filename: f,
+        size: stats.size,
+        createdAt: stats.birthtime
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  res.json({ backups });
+});
+
+// Restore bot from backup
+app.post('/api/panel-bots/:botId/restore/:backupId', requireAuth, async (req, res) => {
+  const configs = loadBotConfigs();
+  const configIdx = configs.findIndex(c => c.id === req.params.botId);
+  
+  if (configIdx === -1) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && configs[configIdx].ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  
+  const config = configs[configIdx];
+  const backupPath = path.join(DATA_DIR, 'backups', `${req.params.botId}-${req.params.backupId}.zip`);
+  
+  if (!fs.existsSync(backupPath)) {
+    return res.status(404).json({ error: 'Backup not found' });
+  }
+  
+  // Stop bot if running
+  if (state.panelBotProcesses[config.id]) {
+    stopPanelBotProcess(config.id);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
+  try {
+    const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+    
+    // Clear existing files (keep .env)
+    const envPath = path.join(botDir, '.env');
+    let envContent = null;
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf8');
+    }
+    
+    // Remove all files
+    if (fs.existsSync(botDir)) {
+      fs.rmSync(botDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(botDir, { recursive: true });
+    
+    // Extract backup
+    const zip = new AdmZip(backupPath);
+    zip.extractAllTo(botDir, true);
+    
+    // Restore .env if it was preserved
+    if (envContent) {
+      fs.writeFileSync(envPath, envContent, 'utf8');
+    }
+    
+    // Remove metadata file from extraction
+    const metadataPath = path.join(botDir, 'ladybug-backup.json');
+    if (fs.existsSync(metadataPath)) {
+      fs.unlinkSync(metadataPath);
+    }
+    
+    log(`Bot "${config.name}" restored from backup by ${req.user.username}`, 'ok');
+    
+    res.json({ ok: true, message: 'Bot restored successfully' });
+  } catch (err) {
+    log(`Restore failed for bot "${config.name}": ${err.message}`, 'error');
+    res.status(500).json({ error: 'Failed to restore backup: ' + err.message });
+  }
+});
+
+// Delete backup
+app.delete('/api/panel-bots/:botId/backup/:backupId', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  
+  const backupPath = path.join(DATA_DIR, 'backups', `${req.params.botId}-${req.params.backupId}.zip`);
+  
+  if (!fs.existsSync(backupPath)) {
+    return res.status(404).json({ error: 'Backup not found' });
+  }
+  
+  fs.unlinkSync(backupPath);
+  log(`Backup deleted for bot "${config.name}" by ${req.user.username}`, 'ok');
+  
+  res.json({ ok: true });
+});
+
+// Session Templates
+app.get('/api/session-templates', requireAuth, (req, res) => {
+  const templates = [
+    {
+      id: 'basic-whatsapp',
+      name: 'Basic WhatsApp Bot',
+      description: 'A simple WhatsApp bot with basic commands',
+      entryPoint: 'index.js'
+    },
+    {
+      id: 'multi-device',
+      name: 'Multi-Device WhatsApp',
+      description: 'WhatsApp bot with multi-device support',
+      entryPoint: 'index.js'
+    },
+    {
+      id: 'group-manager',
+      name: 'Group Manager Bot',
+      description: 'WhatsApp bot for group management',
+      entryPoint: 'index.js'
+    }
+  ];
+  
+  res.json({ templates });
+});
+
+// Create bot from template
+app.post('/api/panel-bots/from-template', requireAuth, async (req, res) => {
+  const { templateId, name, description } = req.body || {};
+  
+  if (!templateId || !name) {
+    return res.status(400).json({ error: 'Template ID and name are required' });
+  }
+  
+  const templateCode = {
+    'basic-whatsapp': `// LADYBUGNODES V(5) - Basic WhatsApp Bot
+const { makeWASocket, DisconnectReason, useMultiFileAuthState } = require('whiskey-connect-baileys');
+const pino = require('pino');
+
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState('./auth');
+  const sock = makeWASocket({ auth: state, printQRInTerminal: true, logger: pino({ level: 'silent' }) });
+  
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update;
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      if (shouldReconnect) startBot();
+    }
+  });
+  
+  sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.key.fromMe && msg.message) {
+      const from = msg.key.remoteJid;
+      const text = msg.message.conversation || '';
+      if (text === '!ping') await sock.sendMessage(from, { text: 'Pong!' });
+    }
+  });
+}
+startBot();`,
+    'multi-device': `// LADYBUGNODES V(5) - Multi-Device Bot
+const { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = require('whiskey-connect-baileys');
+const pino = require('pino');
+
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState('./auth');
+  const { version } = await fetchLatestBaileysVersion();
+  const sock = makeWASocket({ auth: state, printQRInTerminal: true, logger: pino({ level: 'silent' }), version });
+  
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update;
+    if (connection === 'close' && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot();
+  });
+  
+  sock.ev.on('creds.update', saveCreds);
+}
+startBot();`,
+    'group-manager': `// LADYBUGNODES V(5) - Group Manager Bot
+const { makeWASocket, DisconnectReason, useMultiFileAuthState } = require('whiskey-connect-baileys');
+const pino = require('pino');
+
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState('./auth');
+  const sock = makeWASocket({ auth: state, printQRInTerminal: true, logger: pino({ level: 'silent' }) });
+  
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect } = update;
+    if (connection === 'close' && lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) startBot();
+  });
+  
+  sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.key.fromMe && msg.message && msg.key.remoteJid.endsWith('@g.us')) {
+      const from = msg.key.remoteJid;
+      const text = msg.message.conversation || '';
+      if (text === '!tagall') {
+        const metadata = await sock.groupMetadata(from);
+        await sock.sendMessage(from, { text: 'Tagging all!', mentions: metadata.participants.map(p => p.id) });
+      }
+    }
+  });
+}
+startBot();`
+  };
+  
+  const code = templateCode[templateId];
+  if (!code) return res.status(404).json({ error: 'Template not found' });
+  
+  const botId = uuidv4();
+  const botDir = path.join(UPLOADED_BOTS_DIR, botId);
+  fs.mkdirSync(botDir, { recursive: true });
+  fs.mkdirSync(path.join(botDir, 'auth'), { recursive: true });
+  
+  fs.writeFileSync(path.join(botDir, 'index.js'), code, 'utf8');
+  fs.writeFileSync(path.join(botDir, 'package.json'), JSON.stringify({
+    name: name.toLowerCase().replace(/\s+/g, '-'),
+    version: '1.0.0',
+    main: 'index.js',
+    scripts: { start: 'node index.js' },
+    dependencies: { 'whiskey-connect-baileys': 'latest', 'pino': '^8.0.0' }
+  }, null, 2), 'utf8');
+  
+  try {
+    execSync('npm install', { cwd: botDir, stdio: 'pipe', timeout: 180000 });
+  } catch (e) {}
+  
+  const configs = loadBotConfigs();
+  const newConfig = {
+    id: botId, name, description: description || '', entryPoint: 'index.js',
+    ownerId: req.user.id, source: 'template', templateId,
+    createdAt: new Date().toISOString(), status: 'stopped', autoRestart: false, envVars: {}
+  };
+  configs.push(newConfig);
+  saveBotConfigs(configs);
+  
+  log(`Bot "${name}" created from template by ${req.user.username}`, 'ok');
+  res.json({ ok: true, bot: newConfig });
+});
+
+// ────────────────────────────────────────────────────────────── Start ──────────────────────────────────────────────────────────────
 server.listen(PORT, () => {
   log(`LADYBUGNODES V(5) running on port ${PORT}`, 'ok');
   if (RENDER_URL) log(`Keep-alive targeting: ${RENDER_URL}`, 'info');
