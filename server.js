@@ -16,6 +16,7 @@ const { v4: uuidv4 } = require('uuid');
 const fetch      = require('node-fetch');
 const chalk      = require('chalk');
 const multer     = require('multer');
+const AdmZip     = require('adm-zip');
 
 // ───────── Config ──────────────────────────────────────────────────────────────────────────────
 const PORT         = process.env.PORT || 3000;
@@ -755,14 +756,17 @@ function startPanelBotProcess(config) {
   log(`Starting panel bot "${config.name}"...`, 'info', config.id);
   setPanelBotStatus(config.id, 'starting');
 
+  // Merge environment variables from config
   const env = {
     ...process.env,
     BOT_ID: config.id,
-    BOT_NAME: config.name
+    BOT_NAME: config.name,
+    ...(config.envVars || {})
   };
 
   const proc = spawn('node', [config.entryPoint || 'index.js'], { cwd: botDir, env, stdio: ['ignore', 'pipe', 'pipe'] });
   state.panelBotProcesses[config.id] = proc;
+  proc.startTime = Date.now();
 
   proc.stdout.on('data', d => log(d.toString().trim(), 'bot', config.id));
   proc.stderr.on('data', d => log(d.toString().trim(), 'warn', config.id));
@@ -774,6 +778,18 @@ function startPanelBotProcess(config) {
     const status = code === 0 ? 'stopped' : 'crashed';
     setPanelBotStatus(config.id, status);
     log(`Panel bot "${config.name}" exited with code ${code} → ${status}`, code === 0 ? 'warn' : 'error', config.id);
+
+    // Auto-restart if enabled and crashed
+    if (config.autoRestart && status === 'crashed') {
+      log(`Auto-restarting panel bot "${config.name}" in 5 seconds...`, 'warn', config.id);
+      setTimeout(() => {
+        const configs = loadBotConfigs();
+        const updatedConfig = configs.find(c => c.id === config.id);
+        if (updatedConfig && updatedConfig.autoRestart) {
+          startPanelBotProcess(updatedConfig);
+        }
+      }, 5000);
+    }
   });
 }
 
@@ -866,6 +882,439 @@ wss.on('connection', (ws) => {
 // ───────── Cron Jobs ──────────────────────────────────────────────────────────────────────────
 // Cleanup every 6 hours
 cron.schedule('0 */6 * * *', runCleanup);
+
+// ────────────────────────────────────────────────────────────────────────────────
+// GitHub Repo Upload for Panel Bots
+// ────────────────────────────────────────────────────────────────────────────────
+app.post('/api/panel-bots/upload-github', requireAuth, async (req, res) => {
+  const { repoUrl, name, description, entryPoint, branch } = req.body || {};
+  
+  if (!repoUrl) {
+    return res.status(400).json({ error: 'GitHub repository URL is required' });
+  }
+
+  // Validate GitHub URL
+  const githubRegex = /^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)/;
+  const match = repoUrl.match(githubRegex);
+  if (!match) {
+    return res.status(400).json({ error: 'Invalid GitHub URL. Use format: https://github.com/owner/repo' });
+  }
+
+  const owner = match[1];
+  const repo = match[2];
+  const repoName = repo.replace(/\.git$/, '');
+  const botId = uuidv4();
+  const botName = name || repoName;
+  const botDescription = description || `Bot from ${owner}/${repoName}`;
+  const botBranch = branch || 'main';
+  const botEntryPoint = entryPoint || 'index.js';
+
+  const extractDir = path.join(UPLOADED_BOTS_DIR, botId);
+  fs.mkdirSync(extractDir, { recursive: true });
+
+  log(`Cloning GitHub repo: ${owner}/${repoName}...`, 'info');
+
+  try {
+    // Clone the repository
+    execSync(`git clone --depth 1 --branch ${botBranch} https://github.com/${owner}/${repoName}.git .`, {
+      cwd: extractDir,
+      stdio: 'pipe',
+      timeout: 120000 // 2 minute timeout
+    });
+
+    // Remove .git directory to save space
+    const gitDir = path.join(extractDir, '.git');
+    if (fs.existsSync(gitDir)) {
+      fs.rmSync(gitDir, { recursive: true, force: true });
+    }
+
+    // Check for package.json and install dependencies
+    const packageJsonPath = path.join(extractDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      log(`Installing dependencies for bot "${botName}"...`, 'info');
+      try {
+        execSync('npm install --production', { cwd: extractDir, stdio: 'pipe', timeout: 180000 });
+        log(`Dependencies installed for bot "${botName}"`, 'ok');
+      } catch (err) {
+        log(`Warning: Could not install dependencies for "${botName}": ${err.message}`, 'warn');
+      }
+    }
+
+    // Verify entry point exists
+    const entryPath = path.join(extractDir, botEntryPoint);
+    if (!fs.existsSync(entryPath)) {
+      // Try to find any .js file
+      const files = fs.readdirSync(extractDir);
+      const jsFile = files.find(f => f.endsWith('.js'));
+      if (jsFile) {
+        log(`Entry point "${botEntryPoint}" not found, using "${jsFile}" instead`, 'warn');
+      }
+    }
+
+    const config = {
+      id: botId,
+      name: botName,
+      description: botDescription,
+      entryPoint: botEntryPoint,
+      ownerId: req.user.id,
+      ownerUsername: req.user.username,
+      status: 'stopped',
+      source: 'github',
+      sourceUrl: repoUrl,
+      branch: botBranch,
+      autoRestart: false,
+      envVars: {},
+      createdAt: new Date().toISOString(),
+      path: extractDir
+    };
+
+    const configs = loadBotConfigs();
+    configs.push(config);
+    saveBotConfigs(configs);
+
+    log(`Panel bot "${botName}" uploaded from GitHub by "${req.user.username}"`, 'ok');
+    broadcast({ type: 'panel-bot-created', bot: config });
+    res.json({ ok: true, bot: config });
+  } catch (err) {
+    // Clean up on failure
+    if (fs.existsSync(extractDir)) {
+      fs.rmSync(extractDir, { recursive: true, force: true });
+    }
+    log(`Failed to clone GitHub repo: ${err.message}`, 'error');
+    res.status(500).json({ error: 'Failed to clone repository: ' + err.message });
+  }
+});
+
+// Update bot from GitHub
+app.post('/api/panel-bots/:botId/update-github', requireAuth, async (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+  if (config.source !== 'github' || !config.sourceUrl) {
+    return res.status(400).json({ error: 'This bot was not uploaded from GitHub' });
+  }
+
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  if (!fs.existsSync(botDir)) {
+    return res.status(404).json({ error: 'Bot directory not found' });
+  }
+
+  // Stop the bot if running
+  const wasRunning = config.status === 'running';
+  if (wasRunning) {
+    stopPanelBotProcess(config.id);
+  }
+
+  log(`Updating bot "${config.name}" from GitHub...`, 'info');
+
+  try {
+    // Clone to a temporary directory
+    const branch = config.branch || 'main';
+    const tempDir = path.join(UPLOADED_BOTS_DIR, 'temp-' + config.id);
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    execSync(`git clone --depth 1 --branch ${branch} ${config.sourceUrl}.git .`, {
+      cwd: tempDir,
+      stdio: 'pipe',
+      timeout: 120000
+    });
+
+    // Remove .git directory from temp
+    const tempGitDir = path.join(tempDir, '.git');
+    if (fs.existsSync(tempGitDir)) {
+      fs.rmSync(tempGitDir, { recursive: true, force: true });
+    }
+
+    // Remove all files from bot directory except .env
+    const files = fs.readdirSync(botDir);
+    for (const file of files) {
+      if (file !== '.env') {
+        fs.rmSync(path.join(botDir, file), { recursive: true, force: true });
+      }
+    }
+
+    // Move files from temp to bot directory
+    const tempFiles = fs.readdirSync(tempDir);
+    for (const file of tempFiles) {
+      const src = path.join(tempDir, file);
+      const dest = path.join(botDir, file);
+      fs.renameSync(src, dest);
+    }
+
+    // Clean up temp directory
+    fs.rmSync(tempDir, { recursive: true, force: true });
+
+    // Install dependencies
+    const packageJsonPath = path.join(botDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        execSync('npm install --production', { cwd: botDir, stdio: 'pipe', timeout: 180000 });
+      } catch (err) {
+        log(`Warning: Could not install dependencies: ${err.message}`, 'warn');
+      }
+    }
+
+    // Update config
+    config.updatedAt = new Date().toISOString();
+    saveBotConfigs(configs);
+
+    log(`Bot "${config.name}" updated successfully from GitHub`, 'ok');
+    broadcast({ type: 'panel-bot-updated', bot: config });
+
+    // Restart if it was running
+    if (wasRunning) {
+      setTimeout(() => startPanelBotProcess(config), 1500);
+    }
+
+    res.json({ ok: true, bot: config });
+  } catch (err) {
+    log(`Failed to update bot from GitHub: ${err.message}`, 'error');
+    res.status(500).json({ error: 'Failed to update from GitHub: ' + err.message });
+  }
+});
+
+// Get bot files (file browser)
+app.get('/api/panel-bots/:botId/files', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  const relPath = req.query.path || '';
+  const targetDir = path.join(botDir, relPath);
+
+  // Security: ensure we're not escaping the bot directory
+  if (!targetDir.startsWith(botDir)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (!fs.existsSync(targetDir)) {
+    return res.status(404).json({ error: 'Directory not found' });
+  }
+
+  try {
+    const stats = fs.statSync(targetDir);
+    if (!stats.isDirectory()) {
+      return res.status(400).json({ error: 'Not a directory' });
+    }
+
+    const items = fs.readdirSync(targetDir).map(name => {
+      const itemPath = path.join(targetDir, name);
+      const itemStats = fs.statSync(itemPath);
+      return {
+        name,
+        type: itemStats.isDirectory() ? 'directory' : 'file',
+        size: itemStats.size,
+        modified: itemStats.mtime,
+        path: path.join(relPath, name).replace(/\\/g, '/')
+      };
+    });
+
+    // Sort: directories first, then files, alphabetically
+    items.sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    res.json({ 
+      path: relPath, 
+      items,
+      parent: relPath ? path.dirname(relPath).replace(/\\/g, '/') : null
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read directory: ' + err.message });
+  }
+});
+
+// Get file content
+app.get('/api/panel-bots/:botId/files/content', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  const relPath = req.query.path || '';
+  const filePath = path.join(botDir, relPath);
+
+  // Security: ensure we're not escaping the bot directory
+  if (!filePath.startsWith(botDir)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  try {
+    const stats = fs.statSync(filePath);
+    if (stats.isDirectory()) {
+      return res.status(400).json({ error: 'Cannot read directory' });
+    }
+
+    // Only allow reading certain file types
+    const ext = path.extname(filePath).toLowerCase();
+    const allowedExts = ['.js', '.json', '.md', '.txt', '.env', '.yml', '.yaml', '.ts', '.mjs', '.cjs'];
+    if (!allowedExts.includes(ext) && !filePath.endsWith('.env')) {
+      return res.status(400).json({ error: 'File type not supported for viewing' });
+    }
+
+    // Limit file size
+    if (stats.size > 1024 * 1024) { // 1MB limit
+      return res.status(400).json({ error: 'File too large to view' });
+    }
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.json({ 
+      path: relPath, 
+      content,
+      size: stats.size,
+      modified: stats.mtime
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read file: ' + err.message });
+  }
+});
+
+// Update file content
+app.put('/api/panel-bots/:botId/files/content', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const { path: relPath, content } = req.body || {};
+  if (!relPath) return res.status(400).json({ error: 'File path required' });
+
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  const filePath = path.join(botDir, relPath);
+
+  // Security: ensure we're not escaping the bot directory
+  if (!filePath.startsWith(botDir)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  try {
+    fs.writeFileSync(filePath, content, 'utf8');
+    log(`File "${relPath}" updated for bot "${config.name}"`, 'ok');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to write file: ' + err.message });
+  }
+});
+
+// Get/Set environment variables for a bot
+app.get('/api/panel-bots/:botId/env', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  res.json({ envVars: config.envVars || {} });
+});
+
+app.put('/api/panel-bots/:botId/env', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const idx = configs.findIndex(c => c.id === req.params.botId);
+  
+  if (idx === -1) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && configs[idx].ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const { envVars } = req.body || {};
+  if (typeof envVars !== 'object') {
+    return res.status(400).json({ error: 'envVars must be an object' });
+  }
+
+  configs[idx].envVars = envVars;
+  saveBotConfigs(configs);
+
+  // Also write to .env file in bot directory
+  const botDir = path.join(UPLOADED_BOTS_DIR, configs[idx].id);
+  const envContent = Object.entries(envVars)
+    .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
+    .join('\n');
+  fs.writeFileSync(path.join(botDir, '.env'), envContent, 'utf8');
+
+  log(`Environment variables updated for bot "${configs[idx].name}"`, 'ok');
+  res.json({ ok: true });
+});
+
+// Set auto-restart option
+app.put('/api/panel-bots/:botId/auto-restart', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const idx = configs.findIndex(c => c.id === req.params.botId);
+  
+  if (idx === -1) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && configs[idx].ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const { enabled } = req.body || {};
+  configs[idx].autoRestart = !!enabled;
+  saveBotConfigs(configs);
+
+  res.json({ ok: true, autoRestart: configs[idx].autoRestart });
+});
+
+// Get bot statistics
+app.get('/api/panel-bots/:botId/stats', requireAuth, (req, res) => {
+  const configs = loadBotConfigs();
+  const config = configs.find(c => c.id === req.params.botId);
+  
+  if (!config) return res.status(404).json({ error: 'Bot not found' });
+  if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const botDir = path.join(UPLOADED_BOTS_DIR, config.id);
+  const stats = {
+    status: config.status || 'stopped',
+    createdAt: config.createdAt,
+    updatedAt: config.updatedAt || null,
+    source: config.source || 'upload',
+    sourceUrl: config.sourceUrl || null,
+    branch: config.branch || null,
+    autoRestart: config.autoRestart || false
+  };
+
+  // Get directory size
+  if (fs.existsSync(botDir)) {
+    let totalSize = 0;
+    const calculateSize = (dir) => {
+      const items = fs.readdirSync(dir);
+      for (const item of items) {
+        const itemPath = path.join(dir, item);
+        const itemStats = fs.statSync(itemPath);
+        if (itemStats.isDirectory()) {
+          calculateSize(itemPath);
+        } else {
+          totalSize += itemStats.size;
+        }
+      }
+    };
+    try {
+      calculateSize(botDir);
+      stats.sizeBytes = totalSize;
+      stats.sizeMB = (totalSize / 1024 / 1024).toFixed(2);
+    } catch (err) {
+      stats.sizeBytes = 0;
+      stats.sizeMB = '0';
+    }
+  }
+
+  // Get process info if running
+  if (state.panelBotProcesses[config.id]) {
+    stats.uptime = state.panelBotProcesses[config.id].uptime || 0;
+  }
+
+  res.json(stats);
+});
 
 // ───────── Start ───────────────────────────────────────────────────────────────────────────────
 server.listen(PORT, () => {
