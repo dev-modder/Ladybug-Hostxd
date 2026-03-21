@@ -1,6 +1,35 @@
+# Dependencies
 node_modules/
+
+# Environment files
 .env
+.env.local
+.env.production
+
+# Data directory (persistent storage)
 data/
+
+# Bot source (installed at runtime)
 bot-src/
+
+# Logs
 *.log
+npm-debug.log*
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Uploaded bots (managed at runtime)
+data/uploaded-bots/
