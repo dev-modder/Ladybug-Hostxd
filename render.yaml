@@ -1,19 +1,70 @@
 services:
   - type: web
-    name: ladybugnodes
+    name: ladybugnodes-v7
     runtime: node
+    region: oregon
+    plan: starter
+    branch: main
     buildCommand: npm install
     startCommand: node server.js
-    plan: free
     healthCheckPath: /health
+    
+    # Auto-deploy on push to main
+    autoDeploy: true
+    
+    # Disk storage for bot data
+    disk:
+      name: ladybugnodes-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
+    
+    # Environment variables
     envVars:
       - key: NODE_ENV
         value: production
+      
+      - key: PORT
+        value: 10000
+      
       - key: RENDER_URL
         sync: false
+      
       - key: ADMIN_USERNAME
         sync: false
+        defaultValue: admin
+      
       - key: ADMIN_PASSWORD
         sync: false
+      
       - key: JWT_SECRET
         generateValue: true
+      
+      - key: MONGODB_URI
+        sync: false
+      
+      # Payment system
+      - key: ZIG_EXCHANGE_RATE
+        value: "32.25"
+      
+      - key: USD_EXCHANGE_RATE
+        value: "0.031"
+
+    # Scaling (for paid plans)
+    numInstances: 1
+
+# Cron job for cleanup and maintenance
+  - type: cron
+    name: ladybugnodes-cleanup
+    runtime: node
+    plan: free
+    schedule: "0 3 * * *"  # Daily at 3 AM UTC
+    buildCommand: npm install
+    startCommand: node scripts/cleanup.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+        fromService:
+          name: ladybugnodes-v7
+          envVarKey: MONGODB_URI

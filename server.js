@@ -20,7 +20,7 @@ const AdmZip     = require('adm-zip');
 
 // ───────── Config ──────────────────────────────────────────────────────────────────────────────
 const PORT         = process.env.PORT || 3000;
-const VERSION      = '5.0.0';
+const VERSION      = '7.3.0';
 const RENDER_URL   = process.env.RENDER_URL || '';
 const JWT_SECRET   = process.env.JWT_SECRET || 'ladybugnodes-secret-change-me';
 const PING_INTERVAL_MS = 14 * 60 * 1000;  // 14 minutes
@@ -138,6 +138,16 @@ const state = {
 // ───────── Log Buffer ──────────────────────────────────────────────────────────────────────────
 const MAX_LOG = 500;
 const logBuffer = [];
+// WebSocket clients and broadcast function (defined early for use in log())
+const clients = new Set();
+
+function broadcast(data) {
+  const msg = JSON.stringify(data);
+  for (const ws of clients) {
+    if (ws.readyState === WebSocket.OPEN) ws.send(msg);
+  }
+}
+
 
 function log(msg, level = 'info', sessionId = null) {
   const entry = { ts: Date.now(), level, msg, sessionId };
@@ -379,6 +389,86 @@ app.post('/api/auth/signup', async (req, res) => {
       username: newUser.username, 
       role: newUser.role, 
       coins: newUser.coins,
+      phone: newUser.phone
+    } 
+  });
+});
+
+// Simple signup endpoint (no OTP required - for quick registration)
+app.post('/api/signup', async (req, res) => {
+  const { username, email, phone, password } = req.body || {};
+  
+  // Validation
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+  
+  if (username.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters' });
+  }
+  
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  
+  const users = loadUsers();
+  
+  // Check if username exists
+  if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+    return res.status(409).json({ error: 'Username already exists' });
+  }
+  
+  // Check if email exists (if provided)
+  if (email && users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase())) {
+    return res.status(409).json({ error: 'Email already registered' });
+  }
+  
+  // Create user
+  const hash = bcrypt.hashSync(password, 10);
+  const newUser = {
+    id: uuidv4(),
+    username,
+    email: email || '',
+    phone: phone || '',
+    password: hash,
+    role: 'user',
+    coins: 0, // No free coins - must subscribe
+    timezone: 'Africa/Harare',
+    settings: {
+      twoFactor: false,
+      loginNotify: true,
+      botStart: true,
+      botStop: true,
+      botCrash: true,
+      lowBalance: true
+    },
+    apiKeys: [],
+    subscription: null,
+    trialUsed: false,
+    createdAt: new Date().toISOString()
+  };
+  
+  users.push(newUser);
+  saveUsers(users);
+  
+  // Generate token
+  const token = jwt.sign(
+    { id: newUser.id, username: newUser.username, role: newUser.role },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  
+  log(`New user "${username}" registered via simple signup`, 'ok');
+  
+  res.status(201).json({ 
+    ok: true, 
+    message: 'Account created successfully! Please subscribe to a plan to start hosting bots.',
+    token,
+    user: { 
+      id: newUser.id, 
+      username: newUser.username, 
+      role: newUser.role, 
+      email: newUser.email,
       phone: newUser.phone
     } 
   });
@@ -1037,16 +1127,25 @@ app.post('/api/panel-bots/:botId/start', requireAuth, (req, res) => {
   if (!config) return res.status(404).json({ error: 'Bot not found' });
   if (req.user.role !== 'admin' && config.ownerId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
 
-  // Coin check (skip for admin)
-  if (req.user.role !== 'admin') {
-    const users = loadUsers();
-    const user  = users.find(u => u.id === req.user.id);
-    if (!user || user.coins < COIN_COST_START) {
-      return res.status(402).json({ error: `Not enough coins. Starting a bot costs ${COIN_COST_START} coins.` });
+  // Subscription check (skip for admin)
+  const subCheck = checkUserSubscription(req.user.id, req.user.role === 'admin');
+  if (!subCheck.allowed) {
+    return res.status(402).json({ 
+      error: 'Active subscription required', 
+      message: 'Please subscribe to a plan to host bots. Visit /api/payments/plans for available plans.',
+      requiresSubscription: true
+    });
+  }
+
+  // Check bot limit
+  if (subCheck.limits && subCheck.limits.maxBots > 0) {
+    const userBots = configs.filter(c => c.ownerId === req.user.id && state.panelBotProcesses[c.id]);
+    if (userBots.length >= subCheck.limits.maxBots) {
+      return res.status(402).json({ 
+        error: `Bot limit reached. Your plan allows ${subCheck.limits.maxBots} bots. Upgrade your plan for more.`,
+        planLimit: subCheck.limits.maxBots
+      });
     }
-    user.coins -= COIN_COST_START;
-    saveUsers(users);
-    broadcast({ type: 'coins-updated', userId: user.id, coins: user.coins });
   }
 
   startPanelBotProcess(config);
@@ -1160,6 +1259,121 @@ app.post('/api/install-bot', requireAdmin, (req, res) => {
 });
 
 // ───────── Status & Health ─────────────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// MongoDB Enhanced API Routes (V2)
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+// Mount enhanced API routes if MongoDB is available
+let apiV2Router = null;
+try {
+    apiV2Router = require('./routes/api');
+    app.use('/api/v2', apiV2Router);
+    log('API V2 routes mounted', 'ok');
+} catch (error) {
+    log(`API V2 routes not loaded: ${error.message}`, 'warn');
+}
+
+// Bot Manager Routes (V2 Enhanced)
+let botManagerInstance = null;
+let loggerManagerInstance = null;
+let sessionManagerInstance = null;
+
+try {
+    const { initBotManagerRoutes, getBotManager, getLoggerManager, getSessionManager } = require('./routes/botManager');
+    
+    // Initialize bot manager routes
+    const managers = initBotManagerRoutes(app, {
+        dataDir: DATA_DIR,
+        botsDir: UPLOADED_BOTS_DIR,
+        sessionsDir: path.join(DATA_DIR, 'sessions'),
+        logDir: path.join(DATA_DIR, 'logs')
+    });
+    
+    botManagerInstance = getBotManager();
+    loggerManagerInstance = getLoggerManager();
+    sessionManagerInstance = getSessionManager();
+    
+    log('Bot Manager V2 routes initialized', 'ok');
+} catch (error) {
+    log(`Bot Manager V2 routes not loaded: ${error.message}`, 'warn');
+}
+
+// Payment System (ZiG and USD)
+let paymentManagerInstance = null;
+try {
+    const { initPaymentRoutes } = require('./routes/payments');
+    paymentManagerInstance = initPaymentRoutes(app, { dataDir: DATA_DIR });
+    log('Payment system initialized (ZiG/USD)', 'ok');
+} catch (error) {
+    log(`Payment system not loaded: ${error.message}`, 'warn');
+}
+
+// Coin Rewards System
+let coinRewardSystemInstance = null;
+try {
+    const { coinRewardSystem } = require('./utils/coinRewards');
+    coinRewardSystemInstance = coinRewardSystem;
+    coinRewardSystemInstance.initialize();
+    
+    // Mount coin rewards routes
+    const coinRewardsRoutes = require('./routes/coinRewards');
+    app.use('/api/coins', coinRewardsRoutes);
+    log('Coin rewards system initialized (2 coins/day)', 'ok');
+} catch (error) {
+    log(`Coin rewards system not loaded: ${error.message}`, 'warn');
+}
+
+// Server Management System
+let serverManagerInstance = null;
+try {
+    const { serverManager } = require('./utils/serverManager');
+    serverManagerInstance = serverManager;
+    serverManagerInstance.initialize();
+    
+    // Mount server routes
+    const serverRoutes = require('./routes/servers');
+    app.use('/api/servers', serverRoutes);
+
+    // Admin Routes
+    const adminRoutes = require('./routes/admin');
+    app.use('/api/admin', adminRoutes);
+    log('[OK] Admin routes mounted', 'ok');
+    log('Server management system initialized', 'ok');
+} catch (error) {
+    log(`Server management system not loaded: ${error.message}`, 'warn');
+}
+
+// Subscription check helper
+function checkUserSubscription(userId, isAdmin) {
+    if (isAdmin) return { allowed: true };
+    if (!paymentManagerInstance) return { allowed: true }; // Fallback if payment not loaded
+    
+    const limits = paymentManagerInstance.getUserPlanLimits(userId);
+    return {
+        allowed: limits.canHost,
+        limits
+    };
+}
+
+// MongoDB Status endpoint
+app.get('/api/mongodb/status', (req, res) => {
+    if (mongoExtension && USE_MONGODB) {
+        mongoExtension.getSystemStats().then(stats => {
+            res.json({
+                connected: true,
+                ...stats
+            });
+        }).catch(err => {
+            res.json({ connected: false, error: err.message });
+        });
+    } else {
+        res.json({
+            connected: false,
+            message: 'MongoDB not configured. Set MONGODB_URI environment variable.'
+        });
+    }
+});
+
 app.get('/api/status', (req, res) => {
   const mem = process.memoryUsage();
   res.json({
@@ -1418,15 +1632,6 @@ setInterval(keepAlivePing, PING_INTERVAL_MS);
 
 // ───────── WebSocket Server ───────────────────────────────────────────────────────────────────
 const wss = new WebSocket.Server({ server });
-
-const clients = new Set();
-
-function broadcast(data) {
-  const msg = JSON.stringify(data);
-  for (const ws of clients) {
-    if (ws.readyState === WebSocket.OPEN) ws.send(msg);
-  }
-}
 
 wss.on('connection', (ws) => {
   clients.add(ws);
@@ -2534,10 +2739,42 @@ startBot();`
 });
 
 // ────────────────────────────────────────────────────────────── Start ──────────────────────────────────────────────────────────────
-server.listen(PORT, () => {
-  log(`LADYBUGNODES V(5) running on port ${PORT}`, 'ok');
-  if (RENDER_URL) log(`Keep-alive targeting: ${RENDER_URL}`, 'info');
-  else log(`Set RENDER_URL env var to enable keep-alive pings`, 'warn');
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// MongoDB Integration
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+let mongoExtension = null;
+let USE_MONGODB = false;
+
+async function initializeApp() {
+    // Try to connect to MongoDB
+    try {
+        mongoExtension = require('./server-extension');
+        USE_MONGODB = await mongoExtension.initializeMongoDB();
+        if (USE_MONGODB) {
+            log('MongoDB integration enabled', 'ok');
+        }
+    } catch (error) {
+        log(`MongoDB extension not loaded: ${error.message}`, 'warn');
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// Start Server
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+initializeApp().then(() => {
+    server.listen(PORT, () => {
+        log(`LADYBUGNODES V(7) running on port ${PORT}`, 'ok');
+        if (USE_MONGODB) log('MongoDB database connected', 'ok');
+        else log('Using file-based storage', 'info');
+        if (RENDER_URL) log(`Keep-alive targeting: ${RENDER_URL}`, 'info');
+        else log(`Set RENDER_URL env var to enable keep-alive pings`, 'warn');
+    });
+}).catch(err => {
+    console.error('Failed to initialize:', err);
+    // Start server anyway with file-based storage
+    server.listen(PORT, () => {
+        log(`LADYBUGNODES V(7) running on port ${PORT} (file-based mode)`, 'ok');
+    });
 });
 
 // ────────────────────────────────────────────────────────────── Stability ─────
