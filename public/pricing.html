@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - LADYBUGNODES V(7)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .header h1 span {
+            color: #e94560;
+        }
+        
+        .header p {
+            color: #a0a0b0;
+            font-size: 1.1rem;
+        }
+        
+        .currency-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 30px 0;
+        }
+        
+        .currency-btn {
+            padding: 12px 30px;
+            border: 2px solid #2a2a4a;
+            background: transparent;
+            color: #a0a0b0;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .currency-btn.active {
+            background: #e94560;
+            border-color: #e94560;
+            color: #fff;
+        }
+        
+        .currency-btn:hover {
+            border-color: #e94560;
+        }
+        
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 50px;
+        }
+        
+        .plan-card {
+            background: rgba(26, 26, 46, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #2a2a4a;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-5px);
+            border-color: #e94560;
+            box-shadow: 0 10px 40px rgba(233, 69, 96, 0.2);
+        }
+        
+        .plan-card.featured {
+            border-color: #e94560;
+        }
+        
+        .plan-card.featured::before {
+            content: 'MOST POPULAR';
+            position: absolute;
+            top: 15px;
+            right: -35px;
+            background: #e94560;
+            color: #fff;
+            font-size: 0.7rem;
+            padding: 5px 40px;
+            transform: rotate(45deg);
+        }
+        
+        .plan-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        
+        .plan-name {
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+        }
+        
+        .plan-description {
+            color: #a0a0b0;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        
+        .plan-price {
+            margin-bottom: 25px;
+        }
+        
+        .price-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .price-currency {
+            font-size: 1rem;
+            color: #a0a0b0;
+        }
+        
+        .price-period {
+            color: #6c6c7c;
+            font-size: 0.9rem;
+        }
+        
+        .plan-features {
+            list-style: none;
+            margin-bottom: 25px;
+        }
+        
+        .plan-features li {
+            padding: 8px 0;
+            color: #a0a0b0;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .plan-features li i {
+            color: #00d9a5;
+            width: 20px;
+        }
+        
+        .plan-features li.disabled {
+            color: #6c6c7c;
+            text-decoration: line-through;
+        }
+        
+        .plan-features li.disabled i {
+            color: #6c6c7c;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+        }
+        
+        .btn.outline {
+            background: transparent;
+            border: 2px solid #e94560;
+        }
+        
+        .btn.outline:hover {
+            background: #e94560;
+        }
+        
+        .payment-methods {
+            text-align: center;
+            margin-top: 50px;
+            padding: 30px;
+            background: rgba(26, 26, 46, 0.5);
+            border-radius: 16px;
+        }
+        
+        .payment-methods h3 {
+            margin-bottom: 20px;
+            color: #a0a0b0;
+        }
+        
+        .methods-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .method {
+            background: #16213e;
+            padding: 15px 25px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .method i {
+            font-size: 1.5rem;
+        }
+        
+        .method span {
+            color: #a0a0b0;
+        }
+        
+        .zig {
+            color: #00d9a5;
+        }
+        
+        .usd {
+            color: #00d9a5;
+        }
+        
+        .faq {
+            margin-top: 50px;
+        }
+        
+        .faq h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .faq-item {
+            background: rgba(26, 26, 46, 0.5);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        
+        .faq-question {
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .faq-question:hover {
+            background: rgba(233, 69, 96, 0.1);
+        }
+        
+        .faq-answer {
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s;
+            color: #a0a0b0;
+        }
+        
+        .faq-item.active .faq-answer {
+            padding: 0 20px 20px;
+            max-height: 200px;
+        }
+        
+        .faq-item.active .faq-question i {
+            transform: rotate(180deg);
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #6c6c7c;
+        }
+        
+        .footer a {
+            color: #e94560;
+            text-decoration: none;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .plans-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐝 LADYBUG<span>NODES</span> V(7)</h1>
+            <p>Choose the perfect plan for your bot hosting needs</p>
+            
+            <div class="currency-toggle">
+                <button class="currency-btn active" onclick="setCurrency('USD')">USD ($)</button>
+                <button class="currency-btn" onclick="setCurrency('ZiG')">ZiG</button>
+            </div>
+        </div>
+        
+        <div class="plans-grid">
+            <!-- Starter Plan -->
+            <div class="plan-card">
+                <div class="plan-icon"><i class="fas fa-rocket"></i></div>
+                <h3 class="plan-name">Starter</h3>
+                <p class="plan-description">Perfect for beginners</p>
+                <div class="plan-price">
+                    <span class="price-amount" data-usd="5" data-zig="161">5</span>
+                    <span class="price-currency" data-usd="USD" data-zig="ZiG">USD</span>
+                    <span class="price-period">/month</span>
+                </div>
+                <ul class="plan-features">
+                    <li><i class="fas fa-check"></i> 2 bots maximum</li>
+                    <li><i class="fas fa-check"></i> 100MB storage</li>
+                    <li><i class="fas fa-check"></i> Auto-restart</li>
+                    <li><i class="fas fa-check"></i> Basic logs</li>
+                    <li><i class="fas fa-check"></i> Session import</li>
+                    <li class="disabled"><i class="fas fa-times"></i> Advanced logs</li>
+                    <li class="disabled"><i class="fas fa-times"></i> API access</li>
+                </ul>
+                <button class="btn outline" onclick="selectPlan('starter')">Get Started</button>
+            </div>
+            
+            <!-- Pro Plan -->
+            <div class="plan-card featured">
+                <div class="plan-icon"><i class="fas fa-fire"></i></div>
+                <h3 class="plan-name">Pro</h3>
+                <p class="plan-description">For serious developers</p>
+                <div class="plan-price">
+                    <span class="price-amount" data-usd="15" data-zig="484">15</span>
+                    <span class="price-currency" data-usd="USD" data-zig="ZiG">USD</span>
+                    <span class="price-period">/month</span>
+                </div>
+                <ul class="plan-features">
+                    <li><i class="fas fa-check"></i> 10 bots maximum</li>
+                    <li><i class="fas fa-check"></i> 500MB storage</li>
+                    <li><i class="fas fa-check"></i> Priority support</li>
+                    <li><i class="fas fa-check"></i> Advanced logs</li>
+                    <li><i class="fas fa-check"></i> Bulk operations</li>
+                    <li><i class="fas fa-check"></i> API access</li>
+                    <li class="disabled"><i class="fas fa-times"></i> White label</li>
+                </ul>
+                <button class="btn" onclick="selectPlan('pro')">Get Started</button>
+            </div>
+            
+            <!-- Enterprise Plan -->
+            <div class="plan-card">
+                <div class="plan-icon"><i class="fas fa-building"></i></div>
+                <h3 class="plan-name">Enterprise</h3>
+                <p class="plan-description">For businesses & teams</p>
+                <div class="plan-price">
+                    <span class="price-amount" data-usd="50" data-zig="1613">50</span>
+                    <span class="price-currency" data-usd="USD" data-zig="ZiG">USD</span>
+                    <span class="price-period">/month</span>
+                </div>
+                <ul class="plan-features">
+                    <li><i class="fas fa-check"></i> 50 bots maximum</li>
+                    <li><i class="fas fa-check"></i> 5GB storage</li>
+                    <li><i class="fas fa-check"></i> Dedicated support</li>
+                    <li><i class="fas fa-check"></i> Custom bots</li>
+                    <li><i class="fas fa-check"></i> White label</li>
+                    <li><i class="fas fa-check"></i> Priority processing</li>
+                    <li class="disabled"><i class="fas fa-times"></i> Unlimited bots</li>
+                </ul>
+                <button class="btn outline" onclick="selectPlan('enterprise')">Get Started</button>
+            </div>
+            
+            <!-- Unlimited Plan -->
+            <div class="plan-card">
+                <div class="plan-icon"><i class="fas fa-infinity"></i></div>
+                <h3 class="plan-name">Unlimited</h3>
+                <p class="plan-description">No limits, maximum power</p>
+                <div class="plan-price">
+                    <span class="price-amount" data-usd="100" data-zig="3225">100</span>
+                    <span class="price-currency" data-usd="USD" data-zig="ZiG">USD</span>
+                    <span class="price-period">/month</span>
+                </div>
+                <ul class="plan-features">
+                    <li><i class="fas fa-check"></i> Unlimited bots</li>
+                    <li><i class="fas fa-check"></i> Unlimited storage</li>
+                    <li><i class="fas fa-check"></i> VIP support</li>
+                    <li><i class="fas fa-check"></i> Dedicated server</li>
+                    <li><i class="fas fa-check"></i> White label</li>
+                    <li><i class="fas fa-check"></i> Priority processing</li>
+                    <li><i class="fas fa-check"></i> Everything included</li>
+                </ul>
+                <button class="btn outline" onclick="selectPlan('unlimited')">Get Started</button>
+            </div>
+        </div>
+        
+        <div class="payment-methods">
+            <h3>Accepted Payment Methods</h3>
+            <div class="methods-grid">
+                <div class="method">
+                    <i class="fas fa-mobile-alt zig"></i>
+                    <span>ZiG Mobile Money</span>
+                </div>
+                <div class="method">
+                    <i class="fas fa-university zig"></i>
+                    <span>ZiG Bank Transfer</span>
+                </div>
+                <div class="method">
+                    <i class="fab fa-paypal usd"></i>
+                    <span>PayPal (USD)</span>
+                </div>
+                <div class="method">
+                    <i class="fab fa-cc-stripe usd"></i>
+                    <span>Card via Stripe (USD)</span>
+                </div>
+                <div class="method">
+                    <i class="fas fa-university usd"></i>
+                    <span>USD Bank Transfer</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="faq">
+            <h2>Frequently Asked Questions</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>What is ZiG currency?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    ZiG (Zimbabwe Gold) is Zimbabwe's new currency backed by gold reserves. We accept both ZiG and USD payments for your convenience.
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Can I upgrade my plan later?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    Yes! You can upgrade or downgrade your plan at any time. When upgrading, you'll only pay the difference for the remaining days.
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>What bots can I host?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    LADYBUGNODES supports WhatsApp bots (Baileys, MD, Pairing Code), Telegram bots, Discord bots, Slack bots, and custom bots with your own code.
+                </div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Is there a free trial?</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    We offer a 7-day free trial on the Starter plan for new users. No credit card required to start your trial.
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Need help? Contact <a href="mailto:support@ladybugnodes.com">support@ladybugnodes.com</a></p>
+            <p style="margin-top: 10px;">
+                <a href="/">Home</a> • 
+                <a href="/login">Login</a> • 
+                <a href="/signup">Sign Up</a>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        let currentCurrency = 'USD';
+        
+        function setCurrency(currency) {
+            currentCurrency = currency;
+            
+            // Update buttons
+            document.querySelectorAll('.currency-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update prices
+            document.querySelectorAll('.price-amount').forEach(el => {
+                el.textContent = el.dataset[currency.toLowerCase()];
+            });
+            
+            document.querySelectorAll('.price-currency').forEach(el => {
+                el.textContent = el.dataset[currency.toLowerCase()];
+            });
+        }
+        
+        function selectPlan(planId) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = `/signup?plan=${planId}`;
+                return;
+            }
+            window.location.href = `/dashboard.html?subscribe=${planId}`;
+        }
+        
+        function toggleFaq(element) {
+            const item = element.parentElement;
+            item.classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

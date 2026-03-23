@@ -1,897 +1,441 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LADYBUGNODES V(5) · Sign Up</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    
-    :root {
-      --bg: #0a0b0e;
-      --surface: #111318;
-      --surface2: #181c22;
-      --border: #1e242e;
-      --red: #ff3b5c;
-      --red-dim: rgba(255,59,92,0.12);
-      --green: #00e676;
-      --green-dim: rgba(0,230,118,0.10);
-      --amber: #ffab40;
-      --amber-dim: rgba(255,171,64,0.12);
-      --blue: #40c4ff;
-      --blue-dim: rgba(64,196,255,0.10);
-      --purple: #b388ff;
-      --purple-dim: rgba(179,136,255,0.10);
-      --gold: #ffd700;
-      --gold-dim: rgba(255,215,0,0.12);
-      --muted: #4a5568;
-      --text: #e2e8f0;
-      --text-dim: #718096;
-      --font-mono: 'JetBrains Mono', monospace;
-      --font-sans: 'Syne', sans-serif;
-      --radius: 12px;
-    }
-    
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-sans);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,59,92,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,59,92,0.025) 1px, transparent 1px);
-      background-size: 48px 48px;
-      pointer-events: none;
-      z-index: 0;
-    }
-    
-    .signup-container {
-      width: 100%;
-      max-width: 440px;
-      position: relative;
-      z-index: 1;
-    }
-    
-    .signup-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 32px;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .signup-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--red), var(--purple), var(--blue));
-    }
-    
-    .logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 8px;
-    }
-    
-    .logo-icon {
-      width: 48px;
-      height: 48px;
-      background: var(--red-dim);
-      border: 1px solid rgba(255,59,92,0.3);
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 26px;
-    }
-    
-    .logo-text h1 {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-    
-    .logo-text h1 span { color: var(--red); }
-    .logo-text p { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 2px; }
-    
-    .signup-title {
-      text-align: center;
-      font-size: 20px;
-      font-weight: 700;
-      margin: 24px 0 8px;
-    }
-    
-    .signup-subtitle {
-      text-align: center;
-      font-size: 13px;
-      color: var(--text-dim);
-      margin-bottom: 28px;
-    }
-    
-    .form-group { margin-bottom: 18px; }
-    
-    .form-label {
-      display: block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 8px;
-      font-family: var(--font-mono);
-    }
-    
-    .form-input {
-      width: 100%;
-      padding: 14px 16px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: var(--font-mono);
-      font-size: 14px;
-      transition: border-color 0.2s;
-      outline: none;
-    }
-    
-    .form-input:focus { border-color: var(--purple); }
-    .form-input::placeholder { color: var(--muted); }
-    
-    .form-input.error { border-color: var(--red); }
-    .form-input.success { border-color: var(--green); }
-    
-    .input-hint {
-      font-size: 11px;
-      color: var(--text-dim);
-      font-family: var(--font-mono);
-      margin-top: 6px;
-    }
-    
-    .input-error {
-      font-size: 11px;
-      color: var(--red);
-      font-family: var(--font-mono);
-      margin-top: 6px;
-      display: none;
-    }
-    
-    .input-error.show { display: block; }
-    
-    .otp-row {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      margin: 20px 0;
-    }
-    
-    .otp-input {
-      width: 48px;
-      height: 56px;
-      text-align: center;
-      font-size: 22px;
-      font-weight: 700;
-      font-family: var(--font-mono);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    
-    .otp-input:focus { border-color: var(--purple); }
-    
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 24px;
-      border-radius: 8px;
-      border: none;
-      font-family: var(--font-sans);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-      width: 100%;
-    }
-    
-    .btn:hover { opacity: 0.85; }
-    .btn:active { transform: scale(0.97); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    
-    .btn-primary {
-      background: linear-gradient(135deg, var(--purple), var(--red));
-      color: white;
-    }
-    
-    .btn-secondary {
-      background: var(--surface2);
-      color: var(--text-dim);
-      border: 1px solid var(--border);
-    }
-    
-    .btn-whatsapp {
-      background: #25d366;
-      color: white;
-    }
-    
-    .btn-resend {
-      background: var(--amber-dim);
-      color: var(--amber);
-      border: 1px solid rgba(255,171,64,0.25);
-    }
-    
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin: 24px 0;
-    }
-    
-    .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-    
-    .divider span {
-      font-size: 11px;
-      color: var(--text-dim);
-      font-family: var(--font-mono);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    
-    .login-link {
-      text-align: center;
-      margin-top: 24px;
-      font-size: 13px;
-      color: var(--text-dim);
-    }
-    
-    .login-link a {
-      color: var(--purple);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    
-    .login-link a:hover { text-decoration: underline; }
-    
-    .step-indicator {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 28px;
-    }
-    
-    .step-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border);
-      transition: all 0.3s;
-    }
-    
-    .step-dot.active {
-      background: var(--purple);
-      box-shadow: 0 0 12px rgba(179,136,255,0.5);
-    }
-    
-    .step-dot.completed { background: var(--green); }
-    
-    .form-step { display: none; }
-    .form-step.active { display: block; }
-    
-    .success-icon {
-      text-align: center;
-      font-size: 64px;
-      margin-bottom: 16px;
-      animation: bounceIn 0.5s ease;
-    }
-    
-    @keyframes bounceIn {
-      0% { transform: scale(0); }
-      50% { transform: scale(1.2); }
-      100% { transform: scale(1); }
-    }
-    
-    .success-message {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    
-    .success-message h2 {
-      font-size: 20px;
-      margin-bottom: 8px;
-    }
-    
-    .success-message p {
-      font-size: 13px;
-      color: var(--text-dim);
-    }
-    
-    .features-list {
-      display: grid;
-      gap: 12px;
-      margin: 24px 0;
-    }
-    
-    .feature-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: var(--surface2);
-      border-radius: 8px;
-      font-size: 13px;
-    }
-    
-    .feature-icon {
-      font-size: 20px;
-    }
-    
-    .password-strength {
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      margin-top: 8px;
-      overflow: hidden;
-    }
-    
-    .password-strength-bar {
-      height: 100%;
-      transition: width 0.3s, background 0.3s;
-    }
-    
-    .strength-weak { width: 33%; background: var(--red); }
-    .strength-medium { width: 66%; background: var(--amber); }
-    .strength-strong { width: 100%; background: var(--green); }
-    
-    .phone-input-group {
-      display: flex;
-      gap: 8px;
-    }
-    
-    .country-code {
-      width: 100px;
-      flex-shrink: 0;
-    }
-    
-    .terms-check {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      font-size: 12px;
-      color: var(--text-dim);
-      margin: 20px 0;
-    }
-    
-    .terms-check input {
-      margin-top: 2px;
-    }
-    
-    .terms-check a {
-      color: var(--purple);
-      text-decoration: none;
-    }
-    
-    #toast {
-      position: fixed;
-      bottom: 28px;
-      right: 28px;
-      z-index: 999;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    
-    .toast-item {
-      padding: 12px 18px;
-      border-radius: 10px;
-      font-family: var(--font-mono);
-      font-size: 13px;
-      animation: slideIn 0.3s ease;
-      max-width: 340px;
-    }
-    
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-    
-    .toast-item.ok { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
-    .toast-item.error { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,59,92,0.25); }
-    .toast-item.warn { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,171,64,0.25); }
-    
-    footer {
-      text-align: center;
-      margin-top: 24px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-dim);
-    }
-    
-    footer a {
-      color: var(--red);
-      text-decoration: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - LADYBUGNODES V(7)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo i {
+            font-size: 3rem;
+            color: #e94560;
+        }
+        
+        .logo h1 {
+            color: #fff;
+            font-size: 1.8rem;
+            margin-top: 10px;
+        }
+        
+        .logo span {
+            color: #e94560;
+        }
+        
+        .logo p {
+            color: #a0a0b0;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .card {
+            background: rgba(26, 26, 46, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(233, 69, 96, 0.2);
+        }
+        
+        .card h2 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #a0a0b0;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            background: #16213e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #e94560;
+            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.2);
+        }
+        
+        .form-group input::placeholder {
+            color: #6c6c7c;
+        }
+        
+        .password-container {
+            position: relative;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c6c7c;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        
+        .password-toggle:hover {
+            color: #e94560;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 25px 0;
+            position: relative;
+        }
+        
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #2a2a4a;
+        }
+        
+        .divider span {
+            background: #1a1a2e;
+            padding: 0 15px;
+            color: #6c6c7c;
+            position: relative;
+        }
+        
+        .info-box {
+            background: rgba(15, 52, 96, 0.3);
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box h3 {
+            color: #00d9a5;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+        
+        .info-box ul {
+            list-style: none;
+            color: #a0a0b0;
+            font-size: 0.85rem;
+        }
+        
+        .info-box li {
+            padding: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-box li i {
+            color: #00d9a5;
+        }
+        
+        .footer-text {
+            text-align: center;
+            margin-top: 25px;
+            color: #a0a0b0;
+            font-size: 0.9rem;
+        }
+        
+        .footer-text a {
+            color: #e94560;
+            text-decoration: none;
+        }
+        
+        .footer-text a:hover {
+            text-decoration: underline;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .alert.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        
+        .alert.success {
+            background: rgba(0, 217, 165, 0.1);
+            border: 1px solid #00d9a5;
+            color: #00d9a5;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .feature {
+            background: rgba(22, 33, 62, 0.5);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .feature i {
+            font-size: 1.5rem;
+            color: #e94560;
+            margin-bottom: 8px;
+        }
+        
+        .feature span {
+            display: block;
+            color: #a0a0b0;
+            font-size: 0.8rem;
+        }
+    </style>
 <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
 </head>
 <body>
-  <div class="signup-container">
-    <div class="signup-card">
-      <div class="logo">
-        <div class="logo-icon">🐝</div>
-        <div class="logo-text">
-          <h1>LADYBUG<span>NODES</span></h1>
-          <p>V(5) · Multi-Host Bot Dashboard</p>
-        </div>
-      </div>
-      
-      <div class="step-indicator">
-        <div class="step-dot active" id="step1-dot"></div>
-        <div class="step-dot" id="step2-dot"></div>
-        <div class="step-dot" id="step3-dot"></div>
-      </div>
-      
-      <h2 class="signup-title">Create Account</h2>
-      <p class="signup-subtitle">Sign up with WhatsApp verification</p>
-      
-      <!-- Step 1: Basic Info -->
-      <div class="form-step active" id="step1">
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input type="text" class="form-input" id="username" placeholder="Choose a username" autocomplete="username" />
-          <div class="input-error" id="username-error"></div>
+    <div class="container">
+        <div class="logo">
+            <i class="fas fa-bug"></i>
+            <h1>LADYBUG<span>NODES</span></h1>
+            <p>Version 7.0 - Ultimate Bot Hosting</p>
         </div>
         
-        <div class="form-group">
-          <label class="form-label">Email (optional)</label>
-          <input type="email" class="form-input" id="email" placeholder="your@email.com" autocomplete="email" />
-          <div class="input-hint">For account recovery notifications</div>
+        <div class="card">
+            <h2><i class="fas fa-user-plus"></i> Create Account</h2>
+            
+            <div id="alert" class="alert"></div>
+            
+            <div class="info-box">
+                <h3><i class="fas fa-info-circle"></i> Bot Hosting Plans</h3>
+                <ul>
+                    <li><i class="fas fa-check"></i> Choose from ZiG or USD payments</li>
+                    <li><i class="fas fa-check"></i> Plans starting from $5/month</li>
+                    <li><i class="fas fa-check"></i> Free trial after signup</li>
+                </ul>
+            </div>
+            
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Choose a username" required minlength="3" maxlength="30">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="your@email.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">Phone Number (Optional)</label>
+                    <input type="tel" id="phone" placeholder="+263 XXX XXX XXX">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="password-container">
+                        <input type="password" id="password" placeholder="Create a strong password" required minlength="6">
+                        <i class="fas fa-eye password-toggle" onclick="togglePassword('password')"></i>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <div class="password-container">
+                        <input type="password" id="confirmPassword" placeholder="Confirm your password" required>
+                        <i class="fas fa-eye password-toggle" onclick="togglePassword('confirmPassword')"></i>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">
+                    <i class="fas fa-rocket"></i> Create Account
+                </button>
+            </form>
+            
+            <div class="features">
+                <div class="feature">
+                    <i class="fab fa-whatsapp"></i>
+                    <span>WhatsApp Bots</span>
+                </div>
+                <div class="feature">
+                    <i class="fab fa-telegram"></i>
+                    <span>Telegram Bots</span>
+                </div>
+                <div class="feature">
+                    <i class="fab fa-discord"></i>
+                    <span>Discord Bots</span>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-code"></i>
+                    <span>Custom Bots</span>
+                </div>
+            </div>
+            
+            <div class="footer-text">
+                Already have an account? <a href="/login">Login here</a>
+            </div>
         </div>
-        
-        <div class="form-group">
-          <label class="form-label">WhatsApp Number</label>
-          <div class="phone-input-group">
-            <input type="text" class="form-input country-code" id="country-code" value="+263" placeholder="+263" />
-            <input type="tel" class="form-input" id="phone" placeholder="786831019" autocomplete="tel" />
-          </div>
-          <div class="input-hint">We'll send a verification code via WhatsApp</div>
-          <div class="input-error" id="phone-error"></div>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" class="form-input" id="password" placeholder="Create a strong password" autocomplete="new-password" />
-          <div class="password-strength">
-            <div class="password-strength-bar" id="strength-bar"></div>
-          </div>
-          <div class="input-hint" id="password-hint">Min 6 characters</div>
-          <div class="input-error" id="password-error"></div>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Confirm Password</label>
-          <input type="password" class="form-input" id="confirm-password" placeholder="Confirm your password" autocomplete="new-password" />
-          <div class="input-error" id="confirm-password-error"></div>
-        </div>
-        
-        <div class="terms-check">
-          <input type="checkbox" id="terms" />
-          <label for="terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
-        </div>
-        
-        <button class="btn btn-whatsapp" onclick="sendOTP()">
-          📱 Send Verification Code via WhatsApp
-        </button>
-      </div>
-      
-      <!-- Step 2: OTP Verification -->
-      <div class="form-step" id="step2">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <div style="font-size: 48px; margin-bottom: 12px;">🔐</div>
-          <p style="font-size: 13px; color: var(--text-dim);">
-            We've sent a 6-digit code to<br>
-            <strong id="phone-display" style="color: var(--text);">+263...</strong>
-          </p>
-        </div>
-        
-        <div class="otp-row">
-          <input type="text" class="otp-input" maxlength="1" data-index="0" />
-          <input type="text" class="otp-input" maxlength="1" data-index="1" />
-          <input type="text" class="otp-input" maxlength="1" data-index="2" />
-          <input type="text" class="otp-input" maxlength="1" data-index="3" />
-          <input type="text" class="otp-input" maxlength="1" data-index="4" />
-          <input type="text" class="otp-input" maxlength="1" data-index="5" />
-        </div>
-        
-        <div style="text-align: center; margin-bottom: 20px;">
-          <span style="font-size: 12px; color: var(--text-dim);">Didn't receive the code?</span>
-        </div>
-        
-        <button class="btn btn-resend" id="resend-btn" onclick="resendOTP()" style="margin-bottom: 12px;">
-          📤 Resend Code
-        </button>
-        
-        <button class="btn btn-primary" onclick="verifyOTP()">
-          ✓ Verify & Create Account
-        </button>
-      </div>
-      
-      <!-- Step 3: Success -->
-      <div class="form-step" id="step3">
-        <div class="success-icon">✅</div>
-        <div class="success-message">
-          <h2>Account Created!</h2>
-          <p>Welcome to LADYBUGNODES V(5). Your account is ready.</p>
-        </div>
-        
-        <div class="features-list">
-          <div class="feature-item">
-            <span class="feature-icon">🪙</span>
-            <span>You've received <strong style="color: var(--gold);">50 free coins</strong> to get started!</span>
-          </div>
-          <div class="feature-item">
-            <span class="feature-icon">🤖</span>
-            <span>Start your first bot from the dashboard</span>
-          </div>
-          <div class="feature-item">
-            <span class="feature-icon">📊</span>
-            <span>Monitor your bots in real-time</span>
-          </div>
-        </div>
-        
-        <button class="btn btn-primary" onclick="goToLogin()">
-          🚀 Go to Dashboard
-        </button>
-      </div>
-      
-      <div class="divider">
-        <span>or</span>
-      </div>
-      
-      <div class="login-link">
-        Already have an account? <a href="/login">Log in</a>
-      </div>
     </div>
     
-    <footer>
-      LADYBUGNODES <span style="color:var(--red)">V(5)</span> •
-      Powered by <a href="https://render.com" target="_blank">Render.com</a>
-    </footer>
-  </div>
-  
-  <div id="toast"></div>
-  
-  <script>
-    // State
-    let formData = {};
-    let generatedOTP = '';
-    let canResend = true;
-    let resendTimer = null;
-    
-    // Elements
-    const steps = ['step1', 'step2', 'step3'];
-    const stepDots = ['step1-dot', 'step2-dot', 'step3-dot'];
-    
-    // Password strength checker
-    document.getElementById('password').addEventListener('input', function(e) {
-      const password = e.target.value;
-      const bar = document.getElementById('strength-bar');
-      const hint = document.getElementById('password-hint');
-      
-      bar.className = 'password-strength-bar';
-      
-      if (password.length < 6) {
-        bar.style.display = 'none';
-        hint.textContent = 'Min 6 characters';
-        return;
-      }
-      
-      bar.style.display = 'block';
-      
-      let strength = 0;
-      if (password.length >= 8) strength++;
-      if (/[A-Z]/.test(password)) strength++;
-      if (/[0-9]/.test(password)) strength++;
-      if (/[^A-Za-z0-9]/.test(password)) strength++;
-      
-      if (strength <= 1) {
-        bar.classList.add('strength-weak');
-        hint.textContent = 'Weak password';
-        hint.style.color = 'var(--red)';
-      } else if (strength <= 2) {
-        bar.classList.add('strength-medium');
-        hint.textContent = 'Medium strength';
-        hint.style.color = 'var(--amber)';
-      } else {
-        bar.classList.add('strength-strong');
-        hint.textContent = 'Strong password';
-        hint.style.color = 'var(--green)';
-      }
-    });
-    
-    // OTP input handling
-    document.querySelectorAll('.otp-input').forEach((input, index) => {
-      input.addEventListener('input', function(e) {
-        const value = e.target.value;
-        if (value.length === 1) {
-          if (index < 5) {
-            document.querySelector(`.otp-input[data-index="${index + 1}"]`).focus();
-          }
+    <script>
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                field.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
         }
-      });
-      
-      input.addEventListener('keydown', function(e) {
-        if (e.key === 'Backspace' && !e.target.value && index > 0) {
-          document.querySelector(`.otp-input[data-index="${index - 1}"]`).focus();
-        }
-      });
-      
-      input.addEventListener('paste', function(e) {
-        e.preventDefault();
-        const paste = (e.clipboardData || window.clipboardData).getData('text');
-        const digits = paste.replace(/\D/g, '').slice(0, 6);
         
-        digits.split('').forEach((digit, i) => {
-          const inp = document.querySelector(`.otp-input[data-index="${i}"]`);
-          if (inp) inp.value = digit;
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type}`;
+            alert.style.display = 'block';
+            
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+        
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const submitBtn = document.getElementById('submitBtn');
+            
+            // Validation
+            if (password !== confirmPassword) {
+                showAlert('Passwords do not match', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showAlert('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            // Show loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span> Creating account...';
+            
+            try {
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, phone, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Account created successfully! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    showAlert(data.error || 'Signup failed', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-rocket"></i> Create Account';
+                }
+            } catch (error) {
+                showAlert('Network error. Please try again.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-rocket"></i> Create Account';
+            }
         });
-      });
-    });
-    
-    // Show step
-    function showStep(stepNum) {
-      steps.forEach((step, i) => {
-        document.getElementById(step).classList.toggle('active', i === stepNum - 1);
-      });
-      
-      stepDots.forEach((dot, i) => {
-        const el = document.getElementById(dot);
-        el.classList.remove('active', 'completed');
-        if (i < stepNum - 1) el.classList.add('completed');
-        if (i === stepNum - 1) el.classList.add('active');
-      });
-    }
-    
-    // Validate step 1
-    function validateStep1() {
-      const username = document.getElementById('username').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      const countryCode = document.getElementById('country-code').value.trim();
-      const password = document.getElementById('password').value;
-      const confirmPassword = document.getElementById('confirm-password').value;
-      const terms = document.getElementById('terms').checked;
-      
-      // Reset errors
-      document.querySelectorAll('.input-error').forEach(el => {
-        el.classList.remove('show');
-        el.textContent = '';
-      });
-      document.querySelectorAll('.form-input').forEach(el => el.classList.remove('error'));
-      
-      let valid = true;
-      
-      if (!username || username.length < 3) {
-        document.getElementById('username-error').textContent = 'Username must be at least 3 characters';
-        document.getElementById('username-error').classList.add('show');
-        document.getElementById('username').classList.add('error');
-        valid = false;
-      }
-      
-      if (!phone || phone.length < 6) {
-        document.getElementById('phone-error').textContent = 'Please enter a valid phone number';
-        document.getElementById('phone-error').classList.add('show');
-        document.getElementById('phone').classList.add('error');
-        valid = false;
-      }
-      
-      if (!password || password.length < 6) {
-        document.getElementById('password-error').textContent = 'Password must be at least 6 characters';
-        document.getElementById('password-error').classList.add('show');
-        document.getElementById('password').classList.add('error');
-        valid = false;
-      }
-      
-      if (password !== confirmPassword) {
-        document.getElementById('confirm-password-error').textContent = 'Passwords do not match';
-        document.getElementById('confirm-password-error').classList.add('show');
-        document.getElementById('confirm-password').classList.add('error');
-        valid = false;
-      }
-      
-      if (!terms) {
-        toast('Please accept the Terms of Service', 'error');
-        valid = false;
-      }
-      
-      if (valid) {
-        formData = {
-          username,
-          email: document.getElementById('email').value.trim(),
-          phone: countryCode.replace('+', '') + phone,
-          password
-        };
-      }
-      
-      return valid;
-    }
-    
-    // Send OTP
-    async function sendOTP() {
-      if (!validateStep1()) return;
-      
-      const btn = document.querySelector('.btn-whatsapp');
-      btn.disabled = true;
-      btn.textContent = '⏳ Sending...';
-      
-      try {
-        const response = await fetch('/api/auth/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: formData.phone,
-            type: 'verification'
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-          toast('Verification code sent via WhatsApp!', 'ok');
-          document.getElementById('phone-display').textContent = '+' + formData.phone;
-          showStep(2);
-          
-          // Start resend timer
-          startResendTimer();
-          
-          // In development, show the OTP
-          if (data.otp) {
-            console.log('OTP:', data.otp);
-            toast(`Dev mode - OTP: ${data.otp}`, 'warn');
-          }
-        } else {
-          toast(data.error || 'Failed to send OTP', 'error');
-        }
-      } catch (err) {
-        toast('Network error. Please try again.', 'error');
-      }
-      
-      btn.disabled = false;
-      btn.textContent = '📱 Send Verification Code via WhatsApp';
-    }
-    
-    // Resend OTP
-    function startResendTimer() {
-      canResend = false;
-      let seconds = 60;
-      const btn = document.getElementById('resend-btn');
-      
-      resendTimer = setInterval(() => {
-        seconds--;
-        btn.textContent = `⏳ Wait ${seconds}s`;
-        btn.disabled = true;
-        
-        if (seconds <= 0) {
-          clearInterval(resendTimer);
-          canResend = true;
-          btn.textContent = '📤 Resend Code';
-          btn.disabled = false;
-        }
-      }, 1000);
-    }
-    
-    async function resendOTP() {
-      if (!canResend) return;
-      
-      try {
-        const response = await fetch('/api/auth/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: formData.phone,
-            type: 'verification'
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-          toast('New code sent!', 'ok');
-          startResendTimer();
-          
-          if (data.otp) {
-            toast(`Dev mode - OTP: ${data.otp}`, 'warn');
-          }
-        } else {
-          toast(data.error || 'Failed to resend', 'error');
-        }
-      } catch (err) {
-        toast('Network error', 'error');
-      }
-    }
-    
-    // Verify OTP and create account
-    async function verifyOTP() {
-      const otpInputs = document.querySelectorAll('.otp-input');
-      const otp = Array.from(otpInputs).map(i => i.value).join('');
-      
-      if (otp.length !== 6) {
-        toast('Please enter the 6-digit code', 'error');
-        return;
-      }
-      
-      const btn = document.querySelector('.btn-primary');
-      btn.disabled = true;
-      btn.textContent = '⏳ Verifying...';
-      
-      try {
-        const response = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...formData,
-            otp
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-          // Store token
-          localStorage.setItem('lbn_token', data.token);
-          localStorage.setItem('lbn_user', JSON.stringify(data.user));
-          
-          showStep(3);
-        } else {
-          toast(data.error || 'Verification failed', 'error');
-        }
-      } catch (err) {
-        toast('Network error', 'error');
-      }
-      
-      btn.disabled = false;
-      btn.textContent = '✓ Verify & Create Account';
-    }
-    
-    // Go to login/dashboard
-    function goToLogin() {
-      window.location.href = '/';
-    }
-    
-    // Toast notification
-    function toast(msg, type = 'ok') {
-      const el = document.createElement('div');
-      el.className = `toast-item ${type}`;
-      el.textContent = msg;
-      document.getElementById('toast').appendChild(el);
-      setTimeout(() => el.remove(), 4000);
-    }
-  </script>
+    </script>
 </body>
 </html>

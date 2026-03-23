@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Rewards | LADYBUGNODES V7</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #ff4757;
+            --primary-dark: #ff3344;
+            --primary-glow: rgba(255, 71, 87, 0.5);
+            --secondary: #2ed573;
+            --secondary-glow: rgba(46, 213, 115, 0.5);
+            --gold: #ffa502;
+            --gold-glow: rgba(255, 165, 2, 0.5);
+            --dark: #0a0a0f;
+            --dark-lighter: #151520;
+            --dark-card: #1a1a2e;
+            --text: #ffffff;
+            --text-muted: #8892b0;
+            --gradient-primary: linear-gradient(135deg, #ff4757, #ff6b81);
+            --gradient-gold: linear-gradient(135deg, #ffa502, #ffcc00);
+            --gradient-success: linear-gradient(135deg, #2ed573, #7bed9f);
+            --gradient-purple: linear-gradient(135deg, #a855f7, #6366f1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-animation::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 20% 80%, rgba(255, 71, 87, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(255, 165, 2, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(46, 213, 115, 0.05) 0%, transparent 50%);
+            animation: bgRotate 30s linear infinite;
+        }
+
+        @keyframes bgRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .floating-coins {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .floating-coin {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: var(--gradient-gold);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: floatUp 15s infinite;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.3; }
+            90% { opacity: 0.3; }
+            100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Header */
+        .header {
+            position: sticky;
+            top: 0;
+            background: rgba(10, 10, 15, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+            padding: 1rem 2rem;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .logo-text {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.3rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        .coin-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--dark-card);
+            padding: 8px 16px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 165, 2, 0.3);
+        }
+
+        .coin-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--gradient-gold);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 10px var(--gold-glow);
+        }
+
+        .coin-count {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--gold);
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            text-align: center;
+            padding: 3rem 0 4rem;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 165, 2, 0.1);
+            border: 1px solid rgba(255, 165, 2, 0.3);
+            padding: 8px 20px;
+            border-radius: 50px;
+            margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow); }
+            50% { box-shadow: 0 0 0 10px transparent; }
+        }
+
+        .hero-badge i {
+            color: var(--gold);
+        }
+
+        .hero-badge span {
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        .hero-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 900;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+        }
+
+        .hero-title .highlight {
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        /* Balance Card */
+        .balance-card {
+            background: linear-gradient(135deg, var(--dark-card), rgba(255, 165, 2, 0.05));
+            border: 1px solid rgba(255, 165, 2, 0.2);
+            border-radius: 24px;
+            padding: 3rem;
+            text-align: center;
+            max-width: 500px;
+            margin: 0 auto 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .balance-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-gold);
+        }
+
+        .balance-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+
+        .balance-amount {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4rem;
+            font-weight: 900;
+            color: var(--gold);
+            text-shadow: 0 0 30px var(--gold-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .balance-amount i {
+            font-size: 2.5rem;
+        }
+
+        .streak-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            padding: 8px 16px;
+            border-radius: 50px;
+            margin-top: 1rem;
+        }
+
+        .streak-badge i {
+            color: var(--primary);
+        }
+
+        .streak-badge span {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Claim Section */
+        .claim-section {
+            background: var(--dark-card);
+            border-radius: 24px;
+            padding: 2.5rem;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .claim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .claim-header h3 {
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .claim-header h3 i {
+            color: var(--gold);
+        }
+
+        .next-claim-timer {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .claim-box {
+            background: rgba(255, 165, 2, 0.05);
+            border: 2px dashed rgba(255, 165, 2, 0.3);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .claim-box:hover {
+            border-color: var(--gold);
+            background: rgba(255, 165, 2, 0.1);
+        }
+
+        .claim-amount {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .claim-label {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .claim-btn {
+            background: var(--gradient-gold);
+            color: var(--dark);
+            border: none;
+            padding: 16px 48px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px var(--gold-glow);
+        }
+
+        .claim-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px var(--gold-glow);
+        }
+
+        .claim-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .claim-btn.claimed {
+            background: var(--gradient-success);
+        }
+
+        /* WhatsApp Verify Section */
+        .verify-section {
+            background: linear-gradient(135deg, rgba(46, 213, 115, 0.1), rgba(46, 213, 115, 0.05));
+            border: 1px solid rgba(46, 213, 115, 0.3);
+            border-radius: 24px;
+            padding: 2.5rem;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+            text-align: center;
+        }
+
+        .verify-section.verified {
+            background: linear-gradient(135deg, rgba(46, 213, 115, 0.2), rgba(46, 213, 115, 0.1));
+        }
+
+        .verify-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--gradient-success);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+            box-shadow: 0 8px 30px var(--secondary-glow);
+        }
+
+        .verify-icon.verified {
+            background: var(--gradient-success);
+        }
+
+        .verify-icon.pending {
+            background: var(--gradient-primary);
+        }
+
+        .verify-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .verify-desc {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .verify-steps {
+            text-align: left;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .verify-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .verify-step:last-child {
+            border-bottom: none;
+        }
+
+        .verify-step-number {
+            width: 28px;
+            height: 28px;
+            background: var(--gradient-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .verify-step span {
+            color: var(--text-muted);
+        }
+
+        .verify-step a {
+            color: var(--secondary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .verify-code-box {
+            background: var(--dark);
+            border: 2px solid var(--secondary);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .verify-code-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .verify-code {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--secondary);
+            letter-spacing: 3px;
+        }
+
+        .verify-btn {
+            background: var(--gradient-success);
+            color: var(--dark);
+            border: none;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .verify-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--secondary-glow);
+        }
+
+        /* Streak Milestones */
+        .milestones-section {
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title i {
+            color: var(--primary);
+        }
+
+        .milestones-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .milestone-card {
+            background: var(--dark-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .milestone-card.achieved {
+            border-color: var(--secondary);
+            background: linear-gradient(135deg, rgba(46, 213, 115, 0.1), transparent);
+        }
+
+        .milestone-card.achieved::before {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 24px;
+            height: 24px;
+            background: var(--secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--dark);
+        }
+
+        .milestone-card.current {
+            border-color: var(--gold);
+            background: linear-gradient(135deg, rgba(255, 165, 2, 0.1), transparent);
+            animation: currentMilestone 2s infinite;
+        }
+
+        @keyframes currentMilestone {
+            0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow); }
+            50% { box-shadow: 0 0 20px var(--gold-glow); }
+        }
+
+        .milestone-days {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .milestone-bonus {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 165, 2, 0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gold);
+        }
+
+        /* Leaderboard */
+        .leaderboard-section {
+            margin-bottom: 3rem;
+        }
+
+        .leaderboard-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .leaderboard-tab {
+            background: var(--dark-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 24px;
+            border-radius: 50px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .leaderboard-tab.active {
+            background: var(--gradient-primary);
+            color: var(--text);
+            border-color: transparent;
+        }
+
+        .leaderboard-list {
+            background: var(--dark-card);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s;
+        }
+
+        .leaderboard-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-rank {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            font-weight: 700;
+            margin-right: 1rem;
+        }
+
+        .leaderboard-rank.gold {
+            background: var(--gradient-gold);
+            color: var(--dark);
+        }
+
+        .leaderboard-rank.silver {
+            background: linear-gradient(135deg, #c0c0c0, #e0e0e0);
+            color: var(--dark);
+        }
+
+        .leaderboard-rank.bronze {
+            background: linear-gradient(135deg, #cd7f32, #daa06d);
+            color: var(--dark);
+        }
+
+        .leaderboard-rank.normal {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+        }
+
+        .leaderboard-avatar {
+            width: 45px;
+            height: 45px;
+            background: var(--gradient-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-right: 1rem;
+        }
+
+        .leaderboard-info {
+            flex: 1;
+        }
+
+        .leaderboard-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .leaderboard-stats {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .leaderboard-coins {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        /* Transaction History */
+        .history-section {
+            margin-bottom: 3rem;
+        }
+
+        .history-list {
+            background: var(--dark-card);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+        }
+
+        .history-icon.reward {
+            background: rgba(255, 165, 2, 0.2);
+            color: var(--gold);
+        }
+
+        .history-icon.bonus {
+            background: rgba(46, 213, 115, 0.2);
+            color: var(--secondary);
+        }
+
+        .history-icon.spend {
+            background: rgba(255, 71, 87, 0.2);
+            color: var(--primary);
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .history-date {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .history-amount {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+        }
+
+        .history-amount.positive {
+            color: var(--secondary);
+        }
+
+        .history-amount.negative {
+            color: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .hero-title {
+                font-size: 2rem;
+            }
+
+            .balance-amount {
+                font-size: 3rem;
+            }
+
+            .claim-amount {
+                font-size: 2.5rem;
+            }
+
+            .milestones-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .leaderboard-tabs {
+                flex-wrap: wrap;
+            }
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: var(--text);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: var(--gradient-success);
+        }
+
+        .toast.error {
+            background: var(--gradient-primary);
+        }
+
+        .toast.warning {
+            background: var(--gradient-gold);
+            color: var(--dark);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Confetti Animation */
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--gold);
+            animation: confettiFall 3s ease-out forwards;
+        }
+
+        @keyframes confettiFall {
+            0% {
+                transform: translateY(-100%) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+    </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <!-- Background Animation -->
+    <div class="bg-animation"></div>
+    
+    <!-- Floating Coins -->
+    <div class="floating-coins" id="floatingCoins"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <div class="logo-icon">🐞</div>
+                <span class="logo-text">LADYBUGNODES</span>
+            </a>
+            <nav class="nav-links">
+                <a href="/dashboard.html"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="/panel-bots.html"><i class="fas fa-robot"></i> My Bots</a>
+                <a href="/pricing.html"><i class="fas fa-tag"></i> Pricing</a>
+                <div class="coin-display">
+                    <div class="coin-icon"><i class="fas fa-coins"></i></div>
+                    <span class="coin-count" id="headerCoins">0</span>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-badge">
+                <i class="fas fa-gift"></i>
+                <span>DAILY REWARDS</span>
+            </div>
+            <h1 class="hero-title">
+                Claim Your <span class="highlight">2 Coins</span> Daily
+            </h1>
+            <p class="hero-subtitle">
+                Follow our WhatsApp channel to unlock daily rewards and earn bonus coins with streak milestones!
+            </p>
+        </section>
+
+        <!-- Balance Card -->
+        <div class="balance-card">
+            <div class="balance-label">Your Balance</div>
+            <div class="balance-amount">
+                <i class="fas fa-coins"></i>
+                <span id="balanceAmount">0</span>
+            </div>
+            <div class="streak-badge" id="streakBadge">
+                <i class="fas fa-fire"></i>
+                <span><span id="streakCount">0</span> Day Streak</span>
+            </div>
+        </div>
+
+        <!-- WhatsApp Verify Section -->
+        <div class="verify-section" id="verifySection">
+            <div class="verify-icon" id="verifyIcon">
+                <i class="fab fa-whatsapp"></i>
+            </div>
+            <h3 class="verify-title" id="verifyTitle">Verify WhatsApp Channel Follow</h3>
+            <p class="verify-desc" id="verifyDesc">Follow our WhatsApp channel to unlock daily coin rewards!</p>
+            
+            <div class="verify-steps" id="verifySteps">
+                <div class="verify-step">
+                    <div class="verify-step-number">1</div>
+                    <span>Join our channel: <a href="https://whatsapp.com/channel/0029VaYRbeAJ3jaHqQrJir3O" target="_blank">LADYBUGNODES Official</a></span>
+                </div>
+                <div class="verify-step">
+                    <div class="verify-step-number">2</div>
+                    <span>Send the verification code to the channel</span>
+                </div>
+                <div class="verify-step">
+                    <div class="verify-step-number">3</div>
+                    <span>Click "Verify" to complete and get 5 bonus coins!</span>
+                </div>
+            </div>
+
+            <div class="verify-code-box" id="verifyCodeBox" style="display: none;">
+                <div class="verify-code-label">Your Verification Code</div>
+                <div class="verify-code" id="verifyCode">-</div>
+            </div>
+
+            <button class="verify-btn" id="verifyBtn" onclick="initiateVerification()">
+                <i class="fas fa-qrcode"></i>
+                <span>Get Verification Code</span>
+            </button>
+        </div>
+
+        <!-- Claim Section -->
+        <div class="claim-section">
+            <div class="claim-header">
+                <h3><i class="fas fa-calendar-check"></i> Daily Reward</h3>
+                <div class="next-claim-timer" id="nextClaimTimer">Available Now</div>
+            </div>
+            <div class="claim-box">
+                <div class="claim-amount">+2 <i class="fas fa-coins" style="font-size: 1.5rem;"></i></div>
+                <div class="claim-label">Coins per day</div>
+                <button class="claim-btn" id="claimBtn" onclick="claimDailyReward()">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <span>Claim Now</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Streak Milestones -->
+        <section class="milestones-section">
+            <h2 class="section-title"><i class="fas fa-trophy"></i> Streak Milestones</h2>
+            <div class="milestones-grid">
+                <div class="milestone-card" id="milestone7">
+                    <div class="milestone-days">7 Days</div>
+                    <div class="milestone-bonus">
+                        <i class="fas fa-plus"></i> 3 Coins Bonus
+                    </div>
+                </div>
+                <div class="milestone-card" id="milestone14">
+                    <div class="milestone-days">14 Days</div>
+                    <div class="milestone-bonus">
+                        <i class="fas fa-plus"></i> 5 Coins Bonus
+                    </div>
+                </div>
+                <div class="milestone-card" id="milestone30">
+                    <div class="milestone-days">30 Days</div>
+                    <div class="milestone-bonus">
+                        <i class="fas fa-plus"></i> 10 Coins Bonus
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Leaderboard -->
+        <section class="leaderboard-section">
+            <h2 class="section-title"><i class="fas fa-crown"></i> Leaderboard</h2>
+            <div class="leaderboard-tabs">
+                <button class="leaderboard-tab active" onclick="loadLeaderboard('coins')">Top Coins</button>
+                <button class="leaderboard-tab" onclick="loadLeaderboard('streak')">Top Streaks</button>
+            </div>
+            <div class="leaderboard-list" id="leaderboardList">
+                <!-- Leaderboard items will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Transaction History -->
+        <section class="history-section">
+            <h2 class="section-title"><i class="fas fa-history"></i> Recent Transactions</h2>
+            <div class="history-list" id="historyList">
+                <!-- History items will be loaded here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Container -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">Success!</span>
+    </div>
+
+    <!-- Confetti Container -->
+    <div class="confetti-container" id="confettiContainer"></div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let userBalance = 0;
+        let currentStreak = 0;
+        let isVerified = false;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUserData();
+            createFloatingCoins();
+        });
+
+        // Create floating coins background
+        function createFloatingCoins() {
+            const container = document.getElementById('floatingCoins');
+            for (let i = 0; i < 20; i++) {
+                const coin = document.createElement('div');
+                coin.className = 'floating-coin';
+                coin.style.left = Math.random() * 100 + '%';
+                coin.style.animationDelay = Math.random() * 15 + 's';
+                coin.style.animationDuration = (15 + Math.random() * 10) + 's';
+                container.appendChild(coin);
+            }
+        }
+
+        // Load user data
+        async function loadUserData() {
+            try {
+                // Get balance
+                const balanceRes = await fetch(`${API_BASE}/api/coins/balance`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const balanceData = await balanceRes.json();
+                
+                if (balanceData.success) {
+                    userBalance = balanceData.balance;
+                    document.getElementById('balanceAmount').textContent = userBalance;
+                    document.getElementById('headerCoins').textContent = userBalance;
+                }
+
+                // Get streak info
+                const streakRes = await fetch(`${API_BASE}/api/coins/streak`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const streakData = await streakRes.json();
+                
+                if (streakData.streak !== undefined) {
+                    currentStreak = streakData.streak;
+                    document.getElementById('streakCount').textContent = currentStreak;
+                    updateMilestones(currentStreak);
+                }
+
+                // Check verification status
+                const verifyRes = await fetch(`${API_BASE}/api/coins/verify/status`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const verifyData = await verifyRes.json();
+                
+                isVerified = verifyData.isVerified;
+                updateVerifySection(verifyData);
+
+                // Check if can claim
+                const claimRes = await fetch(`${API_BASE}/api/coins/can-claim`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const claimData = await claimRes.json();
+                updateClaimSection(claimData);
+
+                // Load history
+                loadHistory();
+                
+                // Load leaderboard
+                loadLeaderboard('coins');
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showToast('Error loading data', 'error');
+            }
+        }
+
+        // Update verification section
+        function updateVerifySection(data) {
+            const section = document.getElementById('verifySection');
+            const icon = document.getElementById('verifyIcon');
+            const title = document.getElementById('verifyTitle');
+            const desc = document.getElementById('verifyDesc');
+            const steps = document.getElementById('verifySteps');
+            const codeBox = document.getElementById('verifyCodeBox');
+            const btn = document.getElementById('verifyBtn');
+
+            if (data.isVerified) {
+                section.classList.add('verified');
+                icon.classList.remove('pending');
+                icon.classList.add('verified');
+                icon.innerHTML = '<i class="fas fa-check"></i>';
+                title.textContent = 'WhatsApp Verified!';
+                desc.textContent = 'You can now claim daily rewards!';
+                steps.style.display = 'none';
+                codeBox.style.display = 'none';
+                btn.style.display = 'none';
+            }
+        }
+
+        // Update claim section
+        function updateClaimSection(data) {
+            const claimBtn = document.getElementById('claimBtn');
+            const timer = document.getElementById('nextClaimTimer');
+
+            if (!data.canClaim) {
+                if (data.reason === 'not_verified') {
+                    claimBtn.disabled = true;
+                    claimBtn.innerHTML = '<i class="fas fa-lock"></i> <span>Verify WhatsApp First</span>';
+                    timer.textContent = 'Verification Required';
+                } else if (data.reason === 'already_claimed') {
+                    claimBtn.disabled = true;
+                    claimBtn.classList.add('claimed');
+                    claimBtn.innerHTML = '<i class="fas fa-check"></i> <span>Claimed Today</span>';
+                    
+                    // Show countdown
+                    if (data.nextClaimAt) {
+                        startCountdown(new Date(data.nextClaimAt));
+                    }
+                }
+            } else {
+                claimBtn.disabled = false;
+                claimBtn.innerHTML = '<i class="fas fa-hand-holding-usd"></i> <span>Claim Now</span>';
+                timer.textContent = 'Available Now';
+            }
+        }
+
+        // Start countdown timer
+        function startCountdown(targetDate) {
+            const timer = document.getElementById('nextClaimTimer');
+            
+            function updateTimer() {
+                const now = new Date();
+                const diff = targetDate - now;
+                
+                if (diff <= 0) {
+                    timer.textContent = 'Available Now';
+                    location.reload();
+                    return;
+                }
+                
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                timer.textContent = `${hours}h ${minutes}m ${seconds}s`;
+            }
+            
+            updateTimer();
+            setInterval(updateTimer, 1000);
+        }
+
+        // Update milestones
+        function updateMilestones(streak) {
+            if (streak >= 7) {
+                document.getElementById('milestone7').classList.add('achieved');
+            }
+            if (streak >= 14) {
+                document.getElementById('milestone14').classList.add('achieved');
+            }
+            if (streak >= 30) {
+                document.getElementById('milestone30').classList.add('achieved');
+            }
+            
+            // Highlight current milestone target
+            if (streak < 7) {
+                document.getElementById('milestone7').classList.add('current');
+            } else if (streak < 14) {
+                document.getElementById('milestone14').classList.add('current');
+            } else if (streak < 30) {
+                document.getElementById('milestone30').classList.add('current');
+            }
+        }
+
+        // Initiate verification
+        async function initiateVerification() {
+            const btn = document.getElementById('verifyBtn');
+            const codeBox = document.getElementById('verifyCodeBox');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> <span>Loading...</span>';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/coins/verify/initiate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ phoneNumber: localStorage.getItem('phone') || '' })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (data.alreadyVerified) {
+                        updateVerifySection({ isVerified: true });
+                        showToast('Already verified!', 'success');
+                    } else {
+                        codeBox.style.display = 'block';
+                        document.getElementById('verifyCode').textContent = data.verificationCode;
+                        
+                        btn.innerHTML = '<i class="fas fa-check"></i> <span>Verify Now</span>';
+                        btn.onclick = completeVerification;
+                        btn.disabled = false;
+                        
+                        showToast('Code generated! Send it to our WhatsApp channel.', 'success');
+                    }
+                } else {
+                    showToast(data.error || 'Failed to generate code', 'error');
+                    btn.innerHTML = '<i class="fas fa-qrcode"></i> <span>Try Again</span>';
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                showToast('Error generating code', 'error');
+                btn.innerHTML = '<i class="fas fa-qrcode"></i> <span>Try Again</span>';
+                btn.disabled = false;
+            }
+        }
+
+        // Complete verification
+        async function completeVerification() {
+            const btn = document.getElementById('verifyBtn');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> <span>Verifying...</span>';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/coins/verify/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    updateVerifySection({ isVerified: true });
+                    showToast(data.message || 'Verified! +5 bonus coins!', 'success');
+                    triggerConfetti();
+                    loadUserData();
+                } else {
+                    showToast(data.error || 'Verification failed', 'error');
+                    btn.innerHTML = '<i class="fas fa-check"></i> <span>Try Again</span>';
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                showToast('Error verifying', 'error');
+                btn.innerHTML = '<i class="fas fa-check"></i> <span>Try Again</span>';
+                btn.disabled = false;
+            }
+        }
+
+        // Claim daily reward
+        async function claimDailyReward() {
+            const btn = document.getElementById('claimBtn');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> <span>Claiming...</span>';
+
+            try {
+                const res = await fetch(`${API_BASE}/api/coins/claim`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    userBalance = data.newBalance;
+                    currentStreak = data.streak;
+                    
+                    document.getElementById('balanceAmount').textContent = userBalance;
+                    document.getElementById('headerCoins').textContent = userBalance;
+                    document.getElementById('streakCount').textContent = currentStreak;
+                    
+                    showToast(data.message || `+${data.coinsAwarded} coins claimed!`, 'success');
+                    triggerConfetti();
+                    
+                    updateClaimSection({ canClaim: false, reason: 'already_claimed' });
+                    updateMilestones(currentStreak);
+                } else {
+                    showToast(data.message || data.error || 'Failed to claim', 'warning');
+                    if (data.requiresVerification) {
+                        updateClaimSection({ canClaim: false, reason: 'not_verified' });
+                    } else if (data.alreadyClaimed) {
+                        updateClaimSection({ canClaim: false, reason: 'already_claimed' });
+                    } else {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-hand-holding-usd"></i> <span>Try Again</span>';
+                    }
+                }
+            } catch (error) {
+                showToast('Error claiming reward', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-hand-holding-usd"></i> <span>Try Again</span>';
+            }
+        }
+
+        // Load transaction history
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API_BASE}/api/coins/history?limit=10`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.transactions.length > 0) {
+                    const list = document.getElementById('historyList');
+                    list.innerHTML = data.transactions.map(t => {
+                        const icon = t.amount > 0 ? 'reward' : 'spend';
+                        const iconClass = t.type === 'daily_reward' ? 'reward' : 
+                                         t.type === 'referral_bonus' ? 'bonus' : 'spend';
+                        const iconIcon = t.amount > 0 ? 'fa-arrow-down' : 'fa-arrow-up';
+                        
+                        return `
+                            <div class="history-item">
+                                <div class="history-icon ${iconClass}">
+                                    <i class="fas ${iconIcon}"></i>
+                                </div>
+                                <div class="history-info">
+                                    <div class="history-title">${t.description || t.type}</div>
+                                    <div class="history-date">${new Date(t.createdAt).toLocaleDateString()}</div>
+                                </div>
+                                <div class="history-amount ${t.amount > 0 ? 'positive' : 'negative'}">
+                                    ${t.amount > 0 ? '+' : ''}${t.amount}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // Load leaderboard
+        async function loadLeaderboard(type) {
+            // Update tab styles
+            document.querySelectorAll('.leaderboard-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event?.target?.classList?.add('active');
+
+            try {
+                const res = await fetch(`${API_BASE}/api/coins/leaderboard?type=${type}&limit=10`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    const list = document.getElementById('leaderboardList');
+                    
+                    if (type === 'coins') {
+                        list.innerHTML = data.leaderboard.map((user, index) => {
+                            const rankClass = index === 0 ? 'gold' : 
+                                            index === 1 ? 'silver' : 
+                                            index === 2 ? 'bronze' : 'normal';
+                            
+                            return `
+                                <div class="leaderboard-item">
+                                    <div class="leaderboard-rank ${rankClass}">${index + 1}</div>
+                                    <div class="leaderboard-avatar">${user.username?.charAt(0).toUpperCase() || '?'}</div>
+                                    <div class="leaderboard-info">
+                                        <div class="leaderboard-name">${user.username || 'Anonymous'}</div>
+                                        <div class="leaderboard-stats">Member</div>
+                                    </div>
+                                    <div class="leaderboard-coins">
+                                        <i class="fas fa-coins"></i>
+                                        ${user.coins || 0}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    } else {
+                        list.innerHTML = data.leaderboard.map((item, index) => {
+                            const rankClass = index === 0 ? 'gold' : 
+                                            index === 1 ? 'silver' : 
+                                            index === 2 ? 'bronze' : 'normal';
+                            
+                            return `
+                                <div class="leaderboard-item">
+                                    <div class="leaderboard-rank ${rankClass}">${index + 1}</div>
+                                    <div class="leaderboard-avatar">${item.user?.username?.charAt(0).toUpperCase() || '?'}</div>
+                                    <div class="leaderboard-info">
+                                        <div class="leaderboard-name">${item.user?.username || 'Anonymous'}</div>
+                                        <div class="leaderboard-stats">${item.maxStreak} day streak</div>
+                                    </div>
+                                    <div class="leaderboard-coins">
+                                        <i class="fas fa-fire"></i>
+                                        ${item.maxStreak}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+            }
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toast.className = `toast ${type}`;
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Trigger confetti
+        function triggerConfetti() {
+            const container = document.getElementById('confettiContainer');
+            const colors = ['#ffa502', '#ff4757', '#2ed573', '#1e90ff', '#a855f7'];
+            
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                confetti.style.animationDuration = (2 + Math.random()) + 's';
+                container.appendChild(confetti);
+                
+                setTimeout(() => confetti.remove(), 4000);
+            }
+        }
+    </script>
+</body>
+</html>

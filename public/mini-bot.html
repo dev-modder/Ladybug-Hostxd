@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ladybug Mini Bot - Fast Hosting | LADYBUGNODES V7</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #ff4757;
+            --primary-dark: #ff3344;
+            --primary-glow: rgba(255, 71, 87, 0.5);
+            --secondary: #2ed573;
+            --secondary-glow: rgba(46, 213, 115, 0.5);
+            --gold: #ffa502;
+            --gold-glow: rgba(255, 165, 2, 0.5);
+            --purple: #a855f7;
+            --purple-glow: rgba(168, 85, 247, 0.5);
+            --dark: #0a0a0f;
+            --dark-lighter: #151520;
+            --dark-card: #1a1a2e;
+            --text: #ffffff;
+            --text-muted: #8892b0;
+            --gradient-primary: linear-gradient(135deg, #ff4757, #ff6b81);
+            --gradient-gold: linear-gradient(135deg, #ffa502, #ffcc00);
+            --gradient-success: linear-gradient(135deg, #2ed573, #7bed9f);
+            --gradient-purple: linear-gradient(135deg, #a855f7, #6366f1);
+            --gradient-fast: linear-gradient(135deg, #00d4ff, #7c3aed);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-animation::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 50%, rgba(124, 58, 237, 0.1) 0%, transparent 50%);
+        }
+
+        /* Particles */
+        .particles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--purple);
+            border-radius: 50%;
+            animation: particleFloat 10s infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }
+            50% { transform: translateY(-100px) translateX(50px); opacity: 0.7; }
+        }
+
+        /* Header */
+        .header {
+            position: sticky;
+            top: 0;
+            background: rgba(10, 10, 15, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+            padding: 1rem 2rem;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .logo-text {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.3rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            text-align: center;
+            padding: 4rem 0;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(124, 58, 237, 0.2));
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 10px 24px;
+            border-radius: 50px;
+            margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.3); }
+            50% { box-shadow: 0 0 0 10px transparent; }
+        }
+
+        .hero-badge i {
+            color: #00d4ff;
+        }
+
+        .hero-badge span {
+            background: var(--gradient-fast);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        .hero-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 900;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+        }
+
+        .hero-title .highlight {
+            background: var(--gradient-fast);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--gradient-fast);
+            color: var(--text);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--purple);
+            background: rgba(168, 85, 247, 0.1);
+        }
+
+        /* Features Grid */
+        .features-section {
+            padding: 3rem 0;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--dark-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-fast);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(124, 58, 237, 0.2));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #00d4ff;
+        }
+
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Bot Types */
+        .bot-types-section {
+            padding: 3rem 0;
+        }
+
+        .bot-types-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .bot-type-card {
+            background: var(--dark-card);
+            border: 2px solid transparent;
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .bot-type-card:hover {
+            border-color: var(--purple);
+            transform: scale(1.02);
+        }
+
+        .bot-type-card.selected {
+            border-color: var(--purple);
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), transparent);
+        }
+
+        .bot-type-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--gradient-purple);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 1rem;
+            box-shadow: 0 8px 30px var(--purple-glow);
+        }
+
+        .bot-type-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .bot-type-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Deployment Steps */
+        .deployment-section {
+            padding: 3rem 0;
+        }
+
+        .steps-container {
+            background: var(--dark-card);
+            border-radius: 24px;
+            padding: 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .step {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .step:last-child {
+            border-bottom: none;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: var(--gradient-fast);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-desc {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .code-block {
+            background: var(--dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block code {
+            color: #00d4ff;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--text);
+        }
+
+        /* Config Form */
+        .config-section {
+            padding: 3rem 0;
+        }
+
+        .config-form {
+            background: var(--dark-card);
+            border-radius: 24px;
+            padding: 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            background: var(--dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--purple);
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-select {
+            width: 100%;
+            background: var(--dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: var(--text);
+            font-size: 1rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 18px;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: var(--purple);
+        }
+
+        .form-hint {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        .deploy-btn {
+            width: 100%;
+            padding: 18px;
+            font-size: 1.1rem;
+        }
+
+        /* Stats */
+        .stats-section {
+            padding: 3rem 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--dark-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: var(--gradient-fast);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .hero-title {
+                font-size: 2rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .step {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .step-number {
+                margin: 0 auto;
+            }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: var(--text);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: var(--gradient-success);
+        }
+
+        .toast.error {
+            background: var(--gradient-primary);
+        }
+    </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <!-- Background Animation -->
+    <div class="bg-animation"></div>
+    
+    <!-- Particles -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <div class="logo-icon">🐞</div>
+                <span class="logo-text">LADYBUGNODES</span>
+            </a>
+            <nav class="nav-links">
+                <a href="/dashboard.html"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="/panel-bots.html"><i class="fas fa-robot"></i> My Bots</a>
+                <a href="/rewards.html"><i class="fas fa-coins"></i> Rewards</a>
+                <a href="/pricing.html"><i class="fas fa-tag"></i> Pricing</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-badge">
+                <i class="fas fa-bolt"></i>
+                <span>FAST & LIGHTWEIGHT</span>
+            </div>
+            <h1 class="hero-title">
+                Deploy <span class="highlight">Ladybug Mini Bot</span>
+            </h1>
+            <p class="hero-subtitle">
+                Lightning-fast bot hosting with minimal resources. Deploy in seconds, scale effortlessly.
+            </p>
+            <div class="hero-buttons">
+                <a href="#deploy" class="btn btn-primary">
+                    <i class="fas fa-rocket"></i>
+                    Quick Deploy
+                </a>
+                <a href="#docs" class="btn btn-secondary">
+                    <i class="fas fa-book"></i>
+                    Documentation
+                </a>
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">< 5s</div>
+                    <div class="stat-label">Deploy Time</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">256MB</div>
+                    <div class="stat-label">Min Memory</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">99.9%</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">Free</div>
+                    <div class="stat-label">Starter Plan</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="features-section">
+            <h2 class="section-title">Why Ladybug Mini Bot?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3 class="feature-title">Lightning Fast</h3>
+                    <p class="feature-desc">Optimized for speed with minimal dependencies. Deploy in under 5 seconds with instant startup.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-feather"></i>
+                    </div>
+                    <h3 class="feature-title">Ultra Lightweight</h3>
+                    <p class="feature-desc">Uses only 256MB RAM. Perfect for free-tier hosting on Render, Railway, or any platform.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="feature-title">Auto Recovery</h3>
+                    <p class="feature-desc">Built-in crash recovery and health checks. Your bot stays online 99.9% of the time.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-code"></i>
+                    </div>
+                    <h3 class="feature-title">Simple API</h3>
+                    <p class="feature-desc">Clean and intuitive API. Create commands with just a few lines of code.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                    <h3 class="feature-title">Multi-Platform</h3>
+                    <p class="feature-desc">Supports WhatsApp, Telegram, Discord, and Slack. One bot, multiple platforms.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3 class="feature-title">Built-in Analytics</h3>
+                    <p class="feature-desc">Track messages, commands, and performance in real-time with the built-in dashboard.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bot Types -->
+        <section class="bot-types-section" id="deploy">
+            <h2 class="section-title">Choose Your Platform</h2>
+            <div class="bot-types-grid">
+                <div class="bot-type-card selected" onclick="selectBotType(this, 'whatsapp')">
+                    <div class="bot-type-icon">
+                        <i class="fab fa-whatsapp"></i>
+                    </div>
+                    <h3 class="bot-type-name">WhatsApp</h3>
+                    <p class="bot-type-desc">Baileys-based WhatsApp bot</p>
+                </div>
+                <div class="bot-type-card" onclick="selectBotType(this, 'telegram')">
+                    <div class="bot-type-icon">
+                        <i class="fab fa-telegram"></i>
+                    </div>
+                    <h3 class="bot-type-name">Telegram</h3>
+                    <p class="bot-type-desc">Telegram Bot API integration</p>
+                </div>
+                <div class="bot-type-card" onclick="selectBotType(this, 'discord')">
+                    <div class="bot-type-icon">
+                        <i class="fab fa-discord"></i>
+                    </div>
+                    <h3 class="bot-type-name">Discord</h3>
+                    <p class="bot-type-desc">Discord.js lightweight bot</p>
+                </div>
+                <div class="bot-type-card" onclick="selectBotType(this, 'slack')">
+                    <div class="bot-type-icon">
+                        <i class="fab fa-slack"></i>
+                    </div>
+                    <h3 class="bot-type-name">Slack</h3>
+                    <p class="bot-type-desc">Slack Bolt framework bot</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Config Form -->
+        <section class="config-section">
+            <form class="config-form" id="deployForm" onsubmit="return handleDeploy(event)">
+                <h3 class="section-title">Configure Your Mini Bot</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Bot Name</label>
+                    <input type="text" class="form-input" id="botName" placeholder="My Awesome Bot" required>
+                    <p class="form-hint">Give your bot a unique name</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Command Prefix</label>
+                    <input type="text" class="form-input" id="botPrefix" placeholder="!" value="!" maxlength="3" required>
+                    <p class="form-hint">Character(s) used before commands (e.g., !help)</p>
+                </div>
+
+                <div class="form-group" id="tokenGroup">
+                    <label class="form-label">Bot Token / Session ID</label>
+                    <input type="text" class="form-input" id="botToken" placeholder="Enter your bot token or session ID">
+                    <p class="form-hint">Get this from the bot platform (Telegram: @BotFather, Discord: Developer Portal)</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Owner Username</label>
+                    <input type="text" class="form-input" id="ownerName" placeholder="@your_username">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Hosting Region</label>
+                    <select class="form-select" id="region">
+                        <option value="oregon">Oregon (US West)</option>
+                        <option value="frankfurt">Frankfurt (EU)</option>
+                        <option value="singapore">Singapore (Asia)</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary deploy-btn">
+                    <i class="fas fa-rocket"></i>
+                    Deploy Mini Bot
+                </button>
+            </form>
+        </section>
+
+        <!-- Deployment Steps -->
+        <section class="deployment-section" id="docs">
+            <h2 class="section-title">Deployment Guide</h2>
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Create Your Bot</h3>
+                        <p class="step-desc">Fill out the form above with your bot configuration. You'll need a token from your chosen platform.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Deploy to Render</h3>
+                        <p class="step-desc">Click deploy and your bot will be hosted on Render's free tier automatically.</p>
+                        <div class="code-block">
+                            <code># Your bot will be deployed to: https://your-bot.onrender.com</code>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Set Environment Variables</h3>
+                        <p class="step-desc">Configure these environment variables in your Render dashboard:</p>
+                        <div class="code-block">
+                            <code>BOT_TOKEN=your_token_here<br>NODE_ENV=production<br>PORT=3000</code>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3 class="step-title">Test Your Bot</h3>
+                        <p class="step-desc">Visit your bot's health endpoint to verify it's running:</p>
+                        <div class="code-block">
+                            <code>curl https://your-bot.onrender.com/health</code>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Start Code -->
+        <section class="deployment-section">
+            <h2 class="section-title">Quick Start Code</h2>
+            <div class="steps-container">
+                <div class="code-block" style="background: #1a1a2e;">
+                    <code style="color: var(--text);">
+// index.js - Minimal bot setup
+const { LadybugMiniBot, quickDeploy } = require('ladybug-mini-bot');
+
+// Create your bot
+const bot = new LadybugMiniBot({
+    name: 'My Bot',
+    prefix: '!',
+    owner: '@yourname'
+});
+
+// Add a custom command
+bot.command('hello', async (ctx) => {
+    return ctx.reply('Hello World! 👋');
+}, { description: 'Say hello' });
+
+// Deploy!
+quickDeploy(bot.config);
+                    </code>
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© 2024 LADYBUGNODES V7. Fast, Lightweight, Reliable Bot Hosting.</p>
+    </footer>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">Success!</span>
+    </div>
+
+    <script>
+        // Create particles
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 30; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 10 + 's';
+                container.appendChild(particle);
+            }
+        });
+
+        let selectedType = 'whatsapp';
+
+        function selectBotType(element, type) {
+            document.querySelectorAll('.bot-type-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            element.classList.add('selected');
+            selectedType = type;
+
+            // Update token placeholder
+            const tokenInput = document.getElementById('botToken');
+            const tokenGroup = document.getElementById('tokenGroup');
+            
+            if (type === 'whatsapp') {
+                tokenInput.placeholder = 'Session ID will be generated on first run';
+            } else if (type === 'telegram') {
+                tokenInput.placeholder = 'Get token from @BotFather';
+            } else if (type === 'discord') {
+                tokenInput.placeholder = 'Get token from Discord Developer Portal';
+            } else if (type === 'slack') {
+                tokenInput.placeholder = 'Slack Bot Token (xoxb-...)';
+            }
+        }
+
+        function handleDeploy(event) {
+            event.preventDefault();
+            
+            const botName = document.getElementById('botName').value;
+            const botPrefix = document.getElementById('botPrefix').value;
+            const botToken = document.getElementById('botToken').value;
+            const ownerName = document.getElementById('ownerName').value;
+            const region = document.getElementById('region').value;
+
+            // Show success
+            showToast('Bot configuration saved! Redirecting to deployment...', 'success');
+            
+            // In real implementation, this would send to API
+            setTimeout(() => {
+                showToast('Mini bot deployed successfully!', 'success');
+            }, 2000);
+
+            return false;
+        }
+
+        function copyCode(button) {
+            const codeBlock = button.parentElement;
+            const code = codeBlock.querySelector('code').textContent;
+            
+            navigator.clipboard.writeText(code).then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                }, 2000);
+            });
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toast.className = `toast ${type}`;
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
